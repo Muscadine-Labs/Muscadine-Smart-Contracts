@@ -1,6 +1,7 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@openzeppelin/hardhat-upgrades";
+import "dotenv/config";
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -21,7 +22,7 @@ const config: HardhatUserConfig = {
       chainId: 31337,
     },
     base: {
-      url: process.env.BASE_RPC_URL || "https://mainnet.base.org",
+      url: process.env.BASE_RPC_URL || "https://base-rpc.publicnode.com",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
   },
@@ -30,9 +31,17 @@ const config: HardhatUserConfig = {
     currency: "USD",
   },
   etherscan: {
-    apiKey: {
-      base: process.env.BASESCAN_API_KEY || "",
-    },
+    apiKey: process.env.BASESCAN_API_KEY || "",
+    customChains: [
+      {
+        network: "base",
+        chainId: 8453,
+        urls: {
+          apiURL: "https://api.basescan.org/api",
+          browserURL: "https://basescan.org"
+        }
+      }
+    ]
   },
 };
 
