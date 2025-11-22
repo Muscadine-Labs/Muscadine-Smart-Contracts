@@ -44,26 +44,47 @@ jobs:
       - name: Generate gas report
         run: npx hardhat test
         env:
-          GAS_REPORT: true
+          REPORT_GAS: "true"
+        continue-on-error: true
+
+      - name: Check for gas report files
+        run: |
+          echo "Checking for gas report files..."
+          ls -la gas-report.txt 2>/dev/null || echo "gas-report.txt not found"
+          ls -la gasReporterOutput.json 2>/dev/null || echo "gasReporterOutput.json not found"
+          find . -name "*gas*" -type f 2>/dev/null | grep -v node_modules | head -10 || echo "No gas-related files found"
+        continue-on-error: true
+
+      - name: Check for coverage directory
+        run: |
+          echo "Checking for coverage directory..."
+          if [ -d "coverage" ]; then
+            echo "✅ Coverage directory exists"
+            ls -la coverage/ | head -10
+          else
+            echo "⚠️ Coverage directory not found"
+          fi
         continue-on-error: true
 
       - name: Upload gas report
         uses: actions/upload-artifact@v4
-        if: success()
+        if: always()
         with:
           name: gas-report
           path: |
             gas-report.txt
             gasReporterOutput.json
           retention-days: 30
+          if-no-files-found: ignore
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4
-        if: success()
+        if: always()
         with:
           name: coverage
           path: coverage/
           retention-days: 30
+          if-no-files-found: ignore
 
   lint:
     name: Lint
