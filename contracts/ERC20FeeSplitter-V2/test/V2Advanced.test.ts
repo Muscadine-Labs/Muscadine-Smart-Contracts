@@ -16,19 +16,21 @@ describe("ERC20FeeSplitterV2 - Advanced Test Cases", function () {
 
     // Deploy ERC20FeeSplitterV2 with 3 payees (3:3:4 shares)
     const ERC20FeeSplitterV2Factory = await ethers.getContractFactory("ERC20FeeSplitterV2");
-    splitter = await upgrades.deployProxy(
+    splitter = (await upgrades.deployProxy(
       ERC20FeeSplitterV2Factory,
       [
         [await payee1.getAddress(), await payee2.getAddress(), await payee3.getAddress()],
         [3, 3, 4],
-        owner.address
+        owner.address,
       ],
-      { kind: "uups", initializer: "initialize" }
-    ) as unknown as ERC20FeeSplitterV2;
+      { kind: "uups", initializer: "initialize" },
+    )) as unknown as ERC20FeeSplitterV2;
     await splitter.waitForDeployment();
 
     // Deploy mock ERC20 token
-    const TokenFactory = await ethers.getContractFactory("contracts/ERC20FeeSplitter-V2/mocks/ERC20Mock.sol:ERC20Mock");
+    const TokenFactory = await ethers.getContractFactory(
+      "contracts/ERC20FeeSplitter-V2/mocks/ERC20Mock.sol:ERC20Mock",
+    );
     token = await TokenFactory.deploy("Test Token", "TEST", 18);
   });
 
@@ -93,9 +95,10 @@ describe("ERC20FeeSplitterV2 - Advanced Test Cases", function () {
 
   describe("Zero-Due Paths", function () {
     it("should revert claim with NothingDue when no tokens", async function () {
-      await expect(
-        splitter.claim(token, await payee1.getAddress())
-      ).to.be.revertedWithCustomError(splitter, "NothingDue");
+      await expect(splitter.claim(token, await payee1.getAddress())).to.be.revertedWithCustomError(
+        splitter,
+        "NothingDue",
+      );
     });
 
     it("should revert claim with NothingDue when already claimed", async function () {
@@ -104,11 +107,12 @@ describe("ERC20FeeSplitterV2 - Advanced Test Cases", function () {
       await token.transfer(await splitter.getAddress(), amount);
 
       await splitter.claim(token, await payee1.getAddress());
-      
+
       // Try to claim again
-      await expect(
-        splitter.claim(token, await payee1.getAddress())
-      ).to.be.revertedWithCustomError(splitter, "NothingDue");
+      await expect(splitter.claim(token, await payee1.getAddress())).to.be.revertedWithCustomError(
+        splitter,
+        "NothingDue",
+      );
     });
 
     it("should quietly no-op claimAll when nothing due", async function () {
@@ -129,7 +133,7 @@ describe("ERC20FeeSplitterV2 - Advanced Test Cases", function () {
       await Promise.all([
         splitter.claim(token, await payee1.getAddress()),
         splitter.claim(token, await payee2.getAddress()),
-        splitter.claim(token, await payee3.getAddress())
+        splitter.claim(token, await payee3.getAddress()),
       ]);
 
       // All should succeed without reentrancy issues
@@ -148,9 +152,10 @@ describe("ERC20FeeSplitterV2 - Advanced Test Cases", function () {
       await splitter.claimAll(token);
 
       // Total claimed should equal amount (within rounding)
-      const totalClaimed = (await token.balanceOf(await payee1.getAddress())) +
-                          (await token.balanceOf(await payee2.getAddress())) +
-                          (await token.balanceOf(await payee3.getAddress()));
+      const totalClaimed =
+        (await token.balanceOf(await payee1.getAddress())) +
+        (await token.balanceOf(await payee2.getAddress())) +
+        (await token.balanceOf(await payee3.getAddress()));
       expect(totalClaimed).to.equal(amount);
     });
 
@@ -164,4 +169,3 @@ describe("ERC20FeeSplitterV2 - Advanced Test Cases", function () {
     });
   });
 });
-

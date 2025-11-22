@@ -77,7 +77,6 @@ contract ERC20FeeSplitter is ReentrancyGuard {
         emit ERC20Claimed(token, payee, sent);
     }
 
-
     function claimAll(IERC20 token) external nonReentrant {
         // Claim for PAYEE1
         uint256 amount1 = pendingToken(token, PAYEE1);

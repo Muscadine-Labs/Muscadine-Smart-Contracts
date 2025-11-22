@@ -21,19 +21,21 @@ describe("ERC20FeeSplitterV2", function () {
 
     // Deploy ERC20FeeSplitterV2 with initial configuration
     const ERC20FeeSplitterV2Factory = await ethers.getContractFactory("ERC20FeeSplitterV2");
-    splitter = await upgrades.deployProxy(
+    splitter = (await upgrades.deployProxy(
       ERC20FeeSplitterV2Factory,
       [
         [IGNAS_ADDRESS, NICK_ADDRESS, MUSCADINE_ADDRESS],
         [3, 3, 4], // 3 + 3 + 4 = 10 shares total
-        owner.address
+        owner.address,
       ],
-      { kind: "uups", initializer: "initialize" }
-    ) as unknown as ERC20FeeSplitterV2;
+      { kind: "uups", initializer: "initialize" },
+    )) as unknown as ERC20FeeSplitterV2;
     await splitter.waitForDeployment();
 
     // Deploy mock ERC20 token
-    const TokenFactory = await ethers.getContractFactory("contracts/ERC20FeeSplitter-V2/mocks/ERC20Mock.sol:ERC20Mock");
+    const TokenFactory = await ethers.getContractFactory(
+      "contracts/ERC20FeeSplitter-V2/mocks/ERC20Mock.sol:ERC20Mock",
+    );
     token = await TokenFactory.deploy("Test Token", "TEST", 18);
     await token.waitForDeployment();
   });
@@ -74,12 +76,14 @@ describe("ERC20FeeSplitterV2", function () {
 
       // Ignas: 3/10 = 30% = 300 tokens
       expect(await splitter.pendingToken(token, IGNAS_ADDRESS)).to.equal(ethers.parseEther("300"));
-      
+
       // Nick: 3/10 = 30% = 300 tokens
       expect(await splitter.pendingToken(token, NICK_ADDRESS)).to.equal(ethers.parseEther("300"));
-      
+
       // Muscadine: 4/10 = 40% = 400 tokens
-      expect(await splitter.pendingToken(token, MUSCADINE_ADDRESS)).to.equal(ethers.parseEther("400"));
+      expect(await splitter.pendingToken(token, MUSCADINE_ADDRESS)).to.equal(
+        ethers.parseEther("400"),
+      );
     });
 
     it("should allow claiming for individual payees", async function () {
@@ -123,14 +127,15 @@ describe("ERC20FeeSplitterV2", function () {
 
     it("should not allow non-owner to add payee", async function () {
       await expect(
-        splitter.connect(stranger).addPayee(stranger.address, 1)
+        splitter.connect(stranger).addPayee(stranger.address, 1),
       ).to.be.revertedWithCustomError(splitter, "OwnableUnauthorizedAccount");
     });
 
     it("should not allow adding duplicate payee", async function () {
-      await expect(
-        splitter.addPayee(IGNAS_ADDRESS, 1)
-      ).to.be.revertedWithCustomError(splitter, "PayeeAlreadyExists");
+      await expect(splitter.addPayee(IGNAS_ADDRESS, 1)).to.be.revertedWithCustomError(
+        splitter,
+        "PayeeAlreadyExists",
+      );
     });
 
     it("should allow owner to remove a payee", async function () {
@@ -146,10 +151,11 @@ describe("ERC20FeeSplitterV2", function () {
     it("should not allow removing last payee", async function () {
       await splitter.removePayee(MUSCADINE_ADDRESS);
       await splitter.removePayee(NICK_ADDRESS);
-      
-      await expect(
-        splitter.removePayee(IGNAS_ADDRESS)
-      ).to.be.revertedWithCustomError(splitter, "NoPayees");
+
+      await expect(splitter.removePayee(IGNAS_ADDRESS)).to.be.revertedWithCustomError(
+        splitter,
+        "NoPayees",
+      );
     });
 
     it("should allow owner to update payee shares", async function () {
@@ -172,12 +178,14 @@ describe("ERC20FeeSplitterV2", function () {
 
       // Ignas: 5/12 = 41.67% = 500 tokens
       expect(await splitter.pendingToken(token, IGNAS_ADDRESS)).to.equal(ethers.parseEther("500"));
-      
+
       // Nick: 3/12 = 25% = 300 tokens
       expect(await splitter.pendingToken(token, NICK_ADDRESS)).to.equal(ethers.parseEther("300"));
-      
+
       // Muscadine: 4/12 = 33.33% = 400 tokens
-      expect(await splitter.pendingToken(token, MUSCADINE_ADDRESS)).to.equal(ethers.parseEther("400"));
+      expect(await splitter.pendingToken(token, MUSCADINE_ADDRESS)).to.equal(
+        ethers.parseEther("400"),
+      );
     });
   });
 
@@ -189,16 +197,17 @@ describe("ERC20FeeSplitterV2", function () {
 
     it("should not allow non-owner to transfer ownership", async function () {
       await expect(
-        splitter.connect(stranger).transferOwnership(stranger.address)
+        splitter.connect(stranger).transferOwnership(stranger.address),
       ).to.be.revertedWithCustomError(splitter, "OwnableUnauthorizedAccount");
     });
   });
 
   describe("Edge Cases", function () {
     it("should handle zero pending amount", async function () {
-      await expect(
-        splitter.claim(token, IGNAS_ADDRESS)
-      ).to.be.revertedWithCustomError(splitter, "NothingDue");
+      await expect(splitter.claim(token, IGNAS_ADDRESS)).to.be.revertedWithCustomError(
+        splitter,
+        "NothingDue",
+      );
     });
 
     it("should not allow claiming for non-payee", async function () {
@@ -206,9 +215,10 @@ describe("ERC20FeeSplitterV2", function () {
       await token.mint(owner.address, amount);
       await token.transfer(await splitter.getAddress(), amount);
 
-      await expect(
-        splitter.claim(token, stranger.address)
-      ).to.be.revertedWithCustomError(splitter, "PayeeNotFound");
+      await expect(splitter.claim(token, stranger.address)).to.be.revertedWithCustomError(
+        splitter,
+        "PayeeNotFound",
+      );
     });
 
     it("should handle multiple claims correctly", async function () {
@@ -229,4 +239,3 @@ describe("ERC20FeeSplitterV2", function () {
     });
   });
 });
-

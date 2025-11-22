@@ -207,6 +207,134 @@ PROXY_ADDRESS=0xYourProxyAddress
 npm run upgrade:v2:base
 ```
 
+## Scripts
+
+The V2 contract includes several utility scripts for common operations:
+
+### Check Pending Amounts
+
+View pending token amounts for all payees without claiming:
+
+```bash
+CONTRACT_ADDRESS=0x... TOKEN_ADDRESS=0x... npm run check:v2:base
+```
+
+**Environment Variables:**
+- `CONTRACT_ADDRESS` - Proxy address of the deployed contract
+- `TOKEN_ADDRESS` - ERC20 token address to check
+
+**What it shows:**
+- All payees and their shares
+- Pending amount for each payee
+- Total pending across all payees
+- Contract balance
+
+---
+
+### Claim All Tokens
+
+Claim tokens for all payees at once:
+
+```bash
+CONTRACT_ADDRESS=0x... TOKEN_ADDRESS=0x... npm run claim:v2:base
+```
+
+**Environment Variables:**
+- `CONTRACT_ADDRESS` - Proxy address of the deployed contract
+- `TOKEN_ADDRESS` - ERC20 token address to claim
+
+**What it does:**
+- Shows pending amounts before claiming
+- Claims tokens for all payees
+- Shows claimed amounts after transaction
+
+**Note:** Anyone can run this script (not just owner or payees)
+
+---
+
+### Manage Payees (Owner Only)
+
+Add, remove, or update payees and their shares:
+
+**Add Payee:**
+```bash
+CONTRACT_ADDRESS=0x... ACTION=add PAYEE=0x... SHARES=2 npm run manage:v2:base
+```
+
+**Remove Payee:**
+```bash
+CONTRACT_ADDRESS=0x... ACTION=remove PAYEE=0x... npm run manage:v2:base
+```
+
+**Update Payee Shares:**
+```bash
+CONTRACT_ADDRESS=0x... ACTION=update PAYEE=0x... SHARES=5 npm run manage:v2:base
+```
+
+**Environment Variables:**
+- `CONTRACT_ADDRESS` - Proxy address of the deployed contract
+- `ACTION` - "add", "remove", or "update"
+- `PAYEE` - Payee address (required for all actions)
+- `SHARES` - Number of shares (required for add/update actions)
+
+**Requirements:**
+- Must be run by the contract owner
+- Cannot remove the last payee
+- Shares must be > 0
+
+---
+
+### Transfer Ownership (Owner Only)
+
+Transfer contract ownership to a new address (e.g., multi-sig wallet):
+
+```bash
+CONTRACT_ADDRESS=0x... NEW_OWNER=0x... npm run transfer-owner:v2:base
+```
+
+**Environment Variables:**
+- `CONTRACT_ADDRESS` - Proxy address of the deployed contract
+- `NEW_OWNER` - Address of the new owner
+
+**Requirements:**
+- Must be run by the current owner
+- New owner cannot be zero address
+- For production, use a multi-sig wallet address
+
+---
+
+### Upgrade Contract (Owner Only)
+
+Upgrade the contract implementation:
+
+```bash
+PROXY_ADDRESS=0x... npm run upgrade:v2:base
+```
+
+**Environment Variables:**
+- `PROXY_ADDRESS` - Proxy address of the deployed contract
+
+**Requirements:**
+- Must be run by the contract owner
+- See [UPGRADE_GUIDE.md](./UPGRADE_GUIDE.md) for detailed instructions
+
+---
+
+### Script Summary
+
+| Script | Command | Access | Required Env Vars |
+|--------|---------|--------|-------------------|
+| Check Pending | `npm run check:v2:base` | Anyone | `CONTRACT_ADDRESS`, `TOKEN_ADDRESS` |
+| Claim All | `npm run claim:v2:base` | Anyone | `CONTRACT_ADDRESS`, `TOKEN_ADDRESS` |
+| Manage Payees | `npm run manage:v2:base` | Owner | `CONTRACT_ADDRESS`, `ACTION`, `PAYEE`, `SHARES` (if add/update) |
+| Transfer Owner | `npm run transfer-owner:v2:base` | Owner | `CONTRACT_ADDRESS`, `NEW_OWNER` |
+| Upgrade | `npm run upgrade:v2:base` | Owner | `PROXY_ADDRESS` |
+
+**All scripts can also be run directly:**
+```bash
+npx hardhat run contracts/ERC20FeeSplitter-V2/scripts/<script-name>.ts --network base
+```
+
 ## Testing
 
 ```bash

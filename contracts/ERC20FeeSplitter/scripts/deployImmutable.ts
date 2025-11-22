@@ -83,8 +83,13 @@ async function main() {
   };
 
   console.log("\n=== Deployment Info (SAVE THIS) ===");
-  console.log(JSON.stringify(deploymentInfo, (key, value) =>
-    typeof value === 'bigint' ? value.toString() : value, 2));
+  console.log(
+    JSON.stringify(
+      deploymentInfo,
+      (key, value) => (typeof value === "bigint" ? value.toString() : value),
+      2,
+    ),
+  );
 }
 
 main()

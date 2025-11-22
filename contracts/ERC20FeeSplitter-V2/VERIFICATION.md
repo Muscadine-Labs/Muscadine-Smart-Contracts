@@ -86,15 +86,22 @@ After verification:
 
 If automatic verification fails, you can verify manually on Basescan:
 
-1. Go to `https://basescan.org/address/<PROXY_ADDRESS>`
-2. Click **"Contract"** tab
-3. Click **"Verify and Publish"**
-4. Fill in:
-   - Compiler: `0.8.24`
+1. Generate flattened contract (if needed):
+   ```bash
+   npx hardhat flatten contracts/ERC20FeeSplitter-V2/ERC20FeeSplitterV2.sol > ERC20FeeSplitterV2-flattened.sol
+   ```
+
+2. Go to `https://basescan.org/address/<PROXY_ADDRESS>`
+3. Click **"Contract"** tab
+4. Click **"Verify and Publish"**
+5. Fill in:
+   - Compiler: `0.8.28`
    - License: `MIT`
    - Optimization: `Yes` (200 runs)
-   - Enter the flattened contract code
-5. Click **"Verify and Publish"**
+   - Paste the flattened contract code (or use standard verification with constructor args)
+6. Click **"Verify and Publish"**
+
+**Note:** Flattened contracts are not stored in the repository. Generate them on-demand if needed for manual verification.
 
 ## Important Notes
 

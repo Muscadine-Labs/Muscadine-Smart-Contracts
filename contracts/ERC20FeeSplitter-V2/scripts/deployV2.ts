@@ -34,7 +34,11 @@ async function main() {
   console.log("Ignas:        ", IGNAS, "(3 shares, 1.5%)");
   console.log("Nick:         ", NICK, "(3 shares, 1.5%)");
   console.log("Muscadine Labs:", MUSCADINE_LABS, "(4 shares, 2.0%)");
-  console.log("Total shares: ", initialShares.reduce((a, b) => a + b, 0), "(5%)");
+  console.log(
+    "Total shares: ",
+    initialShares.reduce((a, b) => a + b, 0),
+    "(5%)",
+  );
   console.log("Owner:        ", OWNER);
   if (OWNER === NICK) {
     console.log("             (Nick's wallet)");
@@ -44,12 +48,12 @@ async function main() {
 
   // Deploy implementation and proxy
   const ERC20FeeSplitterV2 = await ethers.getContractFactory("ERC20FeeSplitterV2");
-  
+
   console.log("\nDeploying upgradeable contract (UUPS proxy)...");
   const splitter = await upgrades.deployProxy(
     ERC20FeeSplitterV2,
     [initialPayees, initialShares, OWNER],
-    { kind: "uups", initializer: "initialize" }
+    { kind: "uups", initializer: "initialize" },
   );
   await splitter.waitForDeployment();
 
@@ -97,11 +101,11 @@ async function main() {
 
   if (basescanApiKey && isBaseNetwork) {
     console.log("\n=== Verifying Contracts on Basescan ===");
-    
+
     try {
       // Wait a bit for Basescan to index the contract
       console.log("Waiting for Basescan to index contracts...");
-      await new Promise(resolve => setTimeout(resolve, 10000)); // 10 seconds
+      await new Promise((resolve) => setTimeout(resolve, 10000)); // 10 seconds
 
       // Verify implementation contract
       console.log("Verifying implementation contract...");
@@ -116,12 +120,14 @@ async function main() {
           console.log("✅ Implementation contract already verified");
         } else {
           console.log("⚠️  Implementation verification failed:", error.message);
-          console.log(`   Manual verification: npx hardhat verify --network base ${implementationAddress}`);
+          console.log(
+            `   Manual verification: npx hardhat verify --network base ${implementationAddress}`,
+          );
         }
       }
 
       // Wait a bit more
-      await new Promise(resolve => setTimeout(resolve, 5000)); // 5 seconds
+      await new Promise((resolve) => setTimeout(resolve, 5000)); // 5 seconds
 
       // Verify proxy contract
       console.log("Verifying proxy contract...");
@@ -188,14 +194,21 @@ async function main() {
   };
 
   console.log("\n=== Deployment Info (SAVE THIS) ===");
-  console.log(JSON.stringify(deploymentInfo, (key, value) =>
-    typeof value === 'bigint' ? value.toString() : value, 2));
+  console.log(
+    JSON.stringify(
+      deploymentInfo,
+      (key, value) => (typeof value === "bigint" ? value.toString() : value),
+      2,
+    ),
+  );
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
-
+// Only execute if run directly (not during tests)
+if (require.main === module) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}

@@ -12,12 +12,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 /// @notice Upgradeable fee splitter for ERC20 tokens with dynamic payee management
 /// @dev Uses UUPS upgradeability pattern, supports multiple payees with configurable shares
 ///      Uses "actual-sent" accounting for ERC20 to support fee-on-transfer tokens
-contract ERC20FeeSplitterV2 is 
-    Initializable,
-    ReentrancyGuardUpgradeable,
-    OwnableUpgradeable,
-    UUPSUpgradeable
-{
+contract ERC20FeeSplitterV2 is Initializable, ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
     using SafeERC20 for IERC20;
 
     // --- custom errors ---
@@ -77,11 +72,7 @@ contract ERC20FeeSplitterV2 is
             if (initialShares[i] == 0) revert InvalidShares();
             if (payees[initialPayees[i]].exists) revert PayeeAlreadyExists();
 
-            payees[initialPayees[i]] = PayeeInfo({
-                payee: initialPayees[i],
-                shares: initialShares[i],
-                exists: true
-            });
+            payees[initialPayees[i]] = PayeeInfo({payee: initialPayees[i], shares: initialShares[i], exists: true});
             payeeList.push(initialPayees[i]);
             total += initialShares[i];
 
@@ -142,12 +133,12 @@ contract ERC20FeeSplitterV2 is
         for (uint256 i = 0; i < payeeList.length; i++) {
             address payee = payeeList[i];
             uint256 amount = pendingToken(token, payee);
-            
+
             if (amount > 0) {
                 uint256 balanceBefore = token.balanceOf(address(this));
                 token.safeTransfer(payee, amount);
                 uint256 balanceAfter = token.balanceOf(address(this));
-                
+
                 if (balanceAfter < balanceBefore) {
                     uint256 sent = balanceBefore - balanceAfter;
                     _releasedERC20[token][payee] += sent;
@@ -164,11 +155,7 @@ contract ERC20FeeSplitterV2 is
         if (shares == 0) revert InvalidShares();
         if (payees[payee].exists) revert PayeeAlreadyExists();
 
-        payees[payee] = PayeeInfo({
-            payee: payee,
-            shares: shares,
-            exists: true
-        });
+        payees[payee] = PayeeInfo({payee: payee, shares: shares, exists: true});
         payeeList.push(payee);
         totalShares += shares;
 
@@ -218,4 +205,3 @@ contract ERC20FeeSplitterV2 is
     // --- upgrade functions ---
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 }
-

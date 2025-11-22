@@ -16,19 +16,21 @@ describe("ERC20FeeSplitterV2 - Deflationary Token Support", function () {
 
     // Deploy ERC20FeeSplitterV2 with 3 payees (3:3:4 shares)
     const ERC20FeeSplitterV2Factory = await ethers.getContractFactory("ERC20FeeSplitterV2");
-    splitter = await upgrades.deployProxy(
+    splitter = (await upgrades.deployProxy(
       ERC20FeeSplitterV2Factory,
       [
         [await payee1.getAddress(), await payee2.getAddress(), await payee3.getAddress()],
         [3, 3, 4],
-        owner.address
+        owner.address,
       ],
-      { kind: "uups", initializer: "initialize" }
-    ) as unknown as ERC20FeeSplitterV2;
+      { kind: "uups", initializer: "initialize" },
+    )) as unknown as ERC20FeeSplitterV2;
     await splitter.waitForDeployment();
 
     // Deploy deflationary token (1% burn on transfer)
-    const DeflFactory = await ethers.getContractFactory("contracts/ERC20FeeSplitter-V2/mocks/DeflationaryMock.sol:DeflationaryMock");
+    const DeflFactory = await ethers.getContractFactory(
+      "contracts/ERC20FeeSplitter-V2/mocks/DeflationaryMock.sol:DeflationaryMock",
+    );
     deflToken = await DeflFactory.deploy("Deflationary", "DEFL", 18);
     await deflToken.waitForDeployment();
   });
@@ -36,7 +38,7 @@ describe("ERC20FeeSplitterV2 - Deflationary Token Support", function () {
   it("should handle deflationary tokens correctly with actual-sent accounting", async function () {
     const amount = ethers.parseEther("1000");
     await deflToken.mint(owner.address, amount);
-    
+
     // Transfer to splitter (1% burn happens here)
     const balanceBefore = await deflToken.balanceOf(await splitter.getAddress());
     await deflToken.transfer(await splitter.getAddress(), amount);
@@ -85,4 +87,3 @@ describe("ERC20FeeSplitterV2 - Deflationary Token Support", function () {
     expect(pending).to.be.lt(ethers.parseEther("300")); // Less than initial due to deflation
   });
 });
-

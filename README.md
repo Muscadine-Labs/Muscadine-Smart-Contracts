@@ -42,12 +42,7 @@ contracts/
   mocks/                          # Shared mocks (used by multiple contracts)
     MockERC4626Vault.sol
 
-flattened/                        # Flattened contracts for block explorer verification
-  ERC20FeeSplitter/
-    ERC20FeeSplitter-flattened.sol
 ```
-
-**Note:** Flattened contracts are stored outside the `contracts/` directory to prevent Hardhat from compiling them alongside the source contracts.
 
 Each contract folder contains:
 - The contract source code (`.sol` file)
@@ -177,15 +172,7 @@ npx hardhat verify --network base <CONTRACT_ADDRESS> \
   "1"
 ```
 
-**Alternative:** Use the flattened contract for verification:
-```bash
-npx hardhat verify --network base <CONTRACT_ADDRESS> \
-  --contract contracts/ERC20FeeSplitter/ERC20FeeSplitter.sol:ERC20FeeSplitter \
-  "0xf35B121bA32cBeaA27716abEfFb6B65a55f9B333" \
-  "0x0D5A708B651FeE1DAA0470431c4262ab3e1D0261" \
-  "1" \
-  "1"
-```
+**Note:** Hardhat's verification plugin automatically handles contract verification. No flattened contracts are needed.
 
 ## Testing
 
@@ -221,6 +208,28 @@ npx hardhat test contracts/ERC20FeeSplitter/test/
 - Edge cases and precision
 - Dynamic payee management (V2 only)
 
+## Scripts
+
+### V1 Scripts
+
+**Claim All Tokens:**
+```bash
+CONTRACT_ADDRESS=0x... TOKEN_ADDRESS=0x... npm run claim:v1:base
+```
+
+### V2 Scripts
+
+V2 includes comprehensive scripts for contract management. See [contracts/ERC20FeeSplitter-V2/README.md](./contracts/ERC20FeeSplitter-V2/README.md#scripts) for full documentation.
+
+**Quick Reference:**
+- **Check Pending:** `CONTRACT_ADDRESS=0x... TOKEN_ADDRESS=0x... npm run check:v2:base`
+- **Claim All:** `CONTRACT_ADDRESS=0x... TOKEN_ADDRESS=0x... npm run claim:v2:base`
+- **Manage Payees:** `CONTRACT_ADDRESS=0x... ACTION=add PAYEE=0x... SHARES=2 npm run manage:v2:base`
+- **Transfer Owner:** `CONTRACT_ADDRESS=0x... NEW_OWNER=0x... npm run transfer-owner:v2:base`
+- **Upgrade:** `PROXY_ADDRESS=0x... npm run upgrade:v2:base`
+
+**Environment Variables:** See `.env.example` for all required variables.
+
 ## Development
 
 ### Adding a New Contract
@@ -245,13 +254,9 @@ When adding a new contract, follow this structure:
 
 5. Add deployment scripts to `contracts/YourNewContract/scripts/`
 
-6. (Optional) Create flattened contract for verification:
-   ```bash
-   mkdir -p flattened/YourNewContract
-   npx hardhat flatten contracts/YourNewContract/YourNewContract.sol > flattened/YourNewContract/YourNewContract-flattened.sol
-   ```
-
 The repository is configured to automatically find and compile all contracts in the `contracts/` directory. Tests are discovered recursively in `contracts/**/test/` directories.
+
+**Note:** Contract verification is handled automatically by Hardhat's verification plugin. No flattened contracts are needed.
 
 ## Security
 

@@ -26,18 +26,20 @@ describe("ERC20FeeSplitter - Vault Token Compatibility", function () {
     await splitter.waitForDeployment();
 
     // Deploy mock tokens with correct decimals for each vault token
-    const TokenFactory = await ethers.getContractFactory("ERC20Mock");
+    const TokenFactory = await ethers.getContractFactory(
+      "contracts/ERC20FeeSplitter/mocks/ERC20Mock.sol:ERC20Mock",
+    );
 
     // USDC - 6 decimals
-    usdc = await TokenFactory.deploy("USD Coin", "USDC", 6);
+    usdc = (await TokenFactory.deploy("USD Coin", "USDC", 6)) as ERC20Mock;
     await usdc.waitForDeployment();
 
     // cbBTC - 8 decimals
-    cbbtc = await TokenFactory.deploy("Coinbase Wrapped BTC", "cbBTC", 8);
+    cbbtc = (await TokenFactory.deploy("Coinbase Wrapped BTC", "cbBTC", 8)) as ERC20Mock;
     await cbbtc.waitForDeployment();
 
     // WETH - 18 decimals
-    weth = await TokenFactory.deploy("Wrapped Ether", "WETH", 18);
+    weth = (await TokenFactory.deploy("Wrapped Ether", "WETH", 18)) as ERC20Mock;
     await weth.waitForDeployment();
   });
 

@@ -31,13 +31,17 @@ describe("ERC20FeeSplitter", function () {
     await splitter.waitForDeployment();
 
     // Deploy mock tokens
-    const TokenFactory = await ethers.getContractFactory("ERC20Mock");
-    usdc = await TokenFactory.deploy("USD Coin", "USDC", 6);
-    cbbtc = await TokenFactory.deploy("Coinbase BTC", "cbBTC", 8);
-    weth = await TokenFactory.deploy("Wrapped ETH", "WETH", 18);
+    const TokenFactory = await ethers.getContractFactory(
+      "contracts/ERC20FeeSplitter/mocks/ERC20Mock.sol:ERC20Mock",
+    );
+    usdc = (await TokenFactory.deploy("USD Coin", "USDC", 6)) as ERC20Mock;
+    cbbtc = (await TokenFactory.deploy("Coinbase BTC", "cbBTC", 8)) as ERC20Mock;
+    weth = (await TokenFactory.deploy("Wrapped ETH", "WETH", 18)) as ERC20Mock;
 
-    const DeflFactory = await ethers.getContractFactory("DeflationaryMock");
-    deflToken = await DeflFactory.deploy("Deflationary", "DEFL", 18);
+    const DeflFactory = await ethers.getContractFactory(
+      "contracts/ERC20FeeSplitter/mocks/DeflationaryMock.sol:DeflationaryMock",
+    );
+    deflToken = (await DeflFactory.deploy("Deflationary", "DEFL", 18)) as DeflationaryMock;
   });
 
   describe("Deployment", function () {
@@ -55,7 +59,6 @@ describe("ERC20FeeSplitter", function () {
       expect(contract.owner).to.be.undefined;
     });
   });
-
 
   describe("Vault Tokens", function () {
     it("should split USDC vault fees 50/50", async function () {
@@ -197,7 +200,9 @@ describe("ERC20FeeSplitter", function () {
       await usdc.mint(await deployer.getAddress(), amount2);
       await usdc.transfer(await splitter.getAddress(), amount2);
 
-      expect(await splitter.pendingToken(await usdc.getAddress(), NICK_ADDRESS)).to.equal(amount2 / 2n);
+      expect(await splitter.pendingToken(await usdc.getAddress(), NICK_ADDRESS)).to.equal(
+        amount2 / 2n,
+      );
     });
   });
 });

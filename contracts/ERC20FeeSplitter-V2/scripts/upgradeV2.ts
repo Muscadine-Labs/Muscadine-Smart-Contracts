@@ -2,10 +2,10 @@ import { ethers, upgrades } from "hardhat";
 
 /**
  * Upgrade ERC20FeeSplitterV2 to a new implementation
- * 
+ *
  * Usage:
  *   npx hardhat run contracts/ERC20FeeSplitter-V2/scripts/upgradeV2.ts --network base
- * 
+ *
  * Make sure to set PROXY_ADDRESS in .env or update it in this script
  */
 async function main() {
@@ -20,18 +20,20 @@ async function main() {
 
   // Get the proxy address from environment or set it here
   const PROXY_ADDRESS = process.env.PROXY_ADDRESS || "0x0000000000000000000000000000000000000000";
-  
+
   // Skip if running in test environment (hardhat test) - scripts shouldn't run during tests
   // Check if we're in a test context by looking for test files being executed
-  const isTestEnvironment = process.argv.some(arg => arg.includes('test')) || 
-                           process.env.HARDHAT_NETWORK === "hardhat" ||
-                           !PROXY_ADDRESS || PROXY_ADDRESS === "0x0000000000000000000000000000000000000000";
-  
+  const isTestEnvironment =
+    process.argv.some((arg) => arg.includes("test")) ||
+    process.env.HARDHAT_NETWORK === "hardhat" ||
+    !PROXY_ADDRESS ||
+    PROXY_ADDRESS === "0x0000000000000000000000000000000000000000";
+
   if (isTestEnvironment && PROXY_ADDRESS === "0x0000000000000000000000000000000000000000") {
     // Silently exit in test environment - this script shouldn't run during tests
     return;
   }
-  
+
   if (PROXY_ADDRESS === "0x0000000000000000000000000000000000000000") {
     throw new Error("Please set PROXY_ADDRESS in .env file or update this script");
   }
@@ -46,12 +48,12 @@ async function main() {
   // Deploy new implementation
   console.log("\nDeploying new implementation...");
   const ERC20FeeSplitterV2Factory = await ethers.getContractFactory("ERC20FeeSplitterV2");
-  
+
   const upgraded = await upgrades.upgradeProxy(PROXY_ADDRESS, ERC20FeeSplitterV2Factory);
   await upgraded.waitForDeployment();
 
   const newImplementation = await upgrades.erc1967.getImplementationAddress(PROXY_ADDRESS);
-  
+
   console.log("\n=== Upgrade Successful ===");
   console.log("Proxy address (unchanged):", PROXY_ADDRESS);
   console.log("New implementation:", newImplementation);
@@ -85,8 +87,13 @@ async function main() {
   };
 
   console.log("\n=== Upgrade Info (SAVE THIS) ===");
-  console.log(JSON.stringify(upgradeInfo, (key, value) =>
-    typeof value === 'bigint' ? value.toString() : value, 2));
+  console.log(
+    JSON.stringify(
+      upgradeInfo,
+      (key, value) => (typeof value === "bigint" ? value.toString() : value),
+      2,
+    ),
+  );
 }
 
 main()
@@ -95,4 +102,3 @@ main()
     console.error(error);
     process.exit(1);
   });
-

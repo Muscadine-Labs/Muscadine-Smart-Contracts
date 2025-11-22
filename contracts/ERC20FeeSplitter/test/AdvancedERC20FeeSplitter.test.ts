@@ -19,13 +19,15 @@ describe("ERC20FeeSplitter - Advanced Test Cases", function () {
       await payee1.getAddress(),
       await payee2.getAddress(),
       1, // shares1 (50%)
-      1  // shares2 (50%)
+      1, // shares2 (50%)
     );
     await splitter.waitForDeployment();
 
     // Deploy mock ERC20 token
-    const TokenFactory = await ethers.getContractFactory("ERC20Mock");
-    token = await TokenFactory.deploy("Test Token", "TEST", 18);
+    const TokenFactory = await ethers.getContractFactory(
+      "contracts/ERC20FeeSplitter/mocks/ERC20Mock.sol:ERC20Mock",
+    );
+    token = (await TokenFactory.deploy("Test Token", "TEST", 18)) as ERC20Mock;
   });
 
   describe("Equal/Unequal Shares", function () {
@@ -34,8 +36,12 @@ describe("ERC20FeeSplitter - Advanced Test Cases", function () {
       await token.mint(await deployer.getAddress(), amount);
       await token.transfer(await splitter.getAddress(), amount);
 
-      expect(await splitter.pendingToken(token, await payee1.getAddress())).to.equal(ethers.parseEther("500"));
-      expect(await splitter.pendingToken(token, await payee2.getAddress())).to.equal(ethers.parseEther("500"));
+      expect(await splitter.pendingToken(token, await payee1.getAddress())).to.equal(
+        ethers.parseEther("500"),
+      );
+      expect(await splitter.pendingToken(token, await payee2.getAddress())).to.equal(
+        ethers.parseEther("500"),
+      );
     });
 
     it("should handle 70/30 split correctly", async function () {
@@ -45,15 +51,19 @@ describe("ERC20FeeSplitter - Advanced Test Cases", function () {
         await payee1.getAddress(),
         await payee2.getAddress(),
         7, // shares1 (70%)
-        3  // shares2 (30%)
+        3, // shares2 (30%)
       );
 
       const amount = ethers.parseEther("1000");
       await token.mint(await deployer.getAddress(), amount);
       await token.transfer(await splitter70.getAddress(), amount);
 
-      expect(await splitter70.pendingToken(token, await payee1.getAddress())).to.equal(ethers.parseEther("700"));
-      expect(await splitter70.pendingToken(token, await payee2.getAddress())).to.equal(ethers.parseEther("300"));
+      expect(await splitter70.pendingToken(token, await payee1.getAddress())).to.equal(
+        ethers.parseEther("700"),
+      );
+      expect(await splitter70.pendingToken(token, await payee2.getAddress())).to.equal(
+        ethers.parseEther("300"),
+      );
     });
   });
 
@@ -103,7 +113,7 @@ describe("ERC20FeeSplitter - Advanced Test Cases", function () {
 
       // Use claimAll to claim for both
       await splitter.connect(payee1).claimAll(token);
-      
+
       // After claimAll:
       // Payee1 should have: 500 (first) + 1000 (second) = 1500
       // Payee2 should have: 0 (first) + 1500 (second) = 1500
@@ -118,14 +128,16 @@ describe("ERC20FeeSplitter - Advanced Test Cases", function () {
 
     beforeEach(async function () {
       // Deploy deflationary token that burns 10% on transfer
-      const DeflFactory = await ethers.getContractFactory("DeflationaryMock");
+      const DeflFactory = await ethers.getContractFactory(
+        "contracts/ERC20FeeSplitter/mocks/DeflationaryMock.sol:DeflationaryMock",
+      );
       deflToken = await DeflFactory.deploy("Deflationary", "DEFL", 18);
     });
 
     it("should handle deflationary token with proportional claims", async function () {
       const amount = ethers.parseEther("1000");
       await deflToken.mint(await deployer.getAddress(), amount);
-      
+
       const balanceBefore = await deflToken.balanceOf(await splitter.getAddress());
       await deflToken.transfer(await splitter.getAddress(), amount);
       const balanceAfter = await deflToken.balanceOf(await splitter.getAddress());
@@ -135,8 +147,12 @@ describe("ERC20FeeSplitter - Advanced Test Cases", function () {
       expect(actualReceived).to.equal(ethers.parseEther("990"));
 
       // Claims should be based on actual received amount (990/2 = 495 each)
-      expect(await splitter.pendingToken(deflToken, await payee1.getAddress())).to.equal(ethers.parseEther("495"));
-      expect(await splitter.pendingToken(deflToken, await payee2.getAddress())).to.equal(ethers.parseEther("495"));
+      expect(await splitter.pendingToken(deflToken, await payee1.getAddress())).to.equal(
+        ethers.parseEther("495"),
+      );
+      expect(await splitter.pendingToken(deflToken, await payee2.getAddress())).to.equal(
+        ethers.parseEther("495"),
+      );
 
       // Claim and verify actual sent amounts
       const payee1BalanceBefore = await deflToken.balanceOf(await payee1.getAddress());
@@ -157,22 +173,30 @@ describe("ERC20FeeSplitter - Advanced Test Cases", function () {
       await token.mint(await splitter.getAddress(), amount);
 
       // Verify pending amounts scale with balance
-      expect(await splitter.pendingToken(token, await payee1.getAddress())).to.equal(ethers.parseEther("500"));
-      expect(await splitter.pendingToken(token, await payee2.getAddress())).to.equal(ethers.parseEther("500"));
+      expect(await splitter.pendingToken(token, await payee1.getAddress())).to.equal(
+        ethers.parseEther("500"),
+      );
+      expect(await splitter.pendingToken(token, await payee2.getAddress())).to.equal(
+        ethers.parseEther("500"),
+      );
 
       // Simulate rebase by minting more directly to contract
       await token.mint(await splitter.getAddress(), amount);
 
       // Pending amounts should double
-      expect(await splitter.pendingToken(token, await payee1.getAddress())).to.equal(ethers.parseEther("1000"));
-      expect(await splitter.pendingToken(token, await payee2.getAddress())).to.equal(ethers.parseEther("1000"));
+      expect(await splitter.pendingToken(token, await payee1.getAddress())).to.equal(
+        ethers.parseEther("1000"),
+      );
+      expect(await splitter.pendingToken(token, await payee2.getAddress())).to.equal(
+        ethers.parseEther("1000"),
+      );
     });
   });
 
   describe("Zero-Due Paths", function () {
     it("should revert claim with NothingDue when no tokens", async function () {
       await expect(
-        splitter.connect(payee1).claim(token, await payee1.getAddress())
+        splitter.connect(payee1).claim(token, await payee1.getAddress()),
       ).to.be.revertedWithCustomError(splitter, "NothingDue");
     });
 
@@ -186,7 +210,7 @@ describe("ERC20FeeSplitter - Advanced Test Cases", function () {
 
       // Try to claim again - should revert
       await expect(
-        splitter.connect(payee1).claim(token, await payee1.getAddress())
+        splitter.connect(payee1).claim(token, await payee1.getAddress()),
       ).to.be.revertedWithCustomError(splitter, "NothingDue");
     });
 
@@ -219,10 +243,9 @@ describe("ERC20FeeSplitter - Advanced Test Cases", function () {
       await token.mint(await splitter.getAddress(), ethers.parseEther("1000"));
 
       // This should not cause reentrancy issues due to ReentrancyGuard
-      await expect(
-        splitter.connect(payee1).claim(token, await payee1.getAddress())
-      ).to.not.be.reverted;
-      
+      await expect(splitter.connect(payee1).claim(token, await payee1.getAddress())).to.not.be
+        .reverted;
+
       // Verify the claim worked
       expect(await token.balanceOf(await payee1.getAddress())).to.equal(ethers.parseEther("500"));
     });
@@ -240,7 +263,7 @@ describe("ERC20FeeSplitter - Advanced Test Cases", function () {
 
       expect(pending1).to.equal(ethers.parseEther("500.5"));
       expect(pending2).to.equal(ethers.parseEther("500.5"));
-      
+
       // Total claimed should be 1001 (exact amount)
       await splitter.connect(payee1).claim(token, await payee1.getAddress());
       await splitter.connect(payee2).claim(token, await payee2.getAddress());
