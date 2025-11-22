@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers, upgrades } from "hardhat";
+import { ethers } from "hardhat";
 import { ERC20FeeSplitterV2, ERC20Mock } from "../../../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
@@ -22,11 +22,11 @@ describe("ERC20FeeSplitterV2 - Vault Token Compatibility", function () {
 
     // Deploy ERC20FeeSplitterV2 with production configuration
     const ERC20FeeSplitterV2Factory = await ethers.getContractFactory("ERC20FeeSplitterV2");
-    splitter = (await upgrades.deployProxy(
-      ERC20FeeSplitterV2Factory,
-      [[IGNAS_ADDRESS, NICK_ADDRESS, MUSCADINE_ADDRESS], [3, 3, 4], owner.address],
-      { kind: "uups", initializer: "initialize" },
-    )) as unknown as ERC20FeeSplitterV2;
+    splitter = await ERC20FeeSplitterV2Factory.deploy(
+      [IGNAS_ADDRESS, NICK_ADDRESS, MUSCADINE_ADDRESS],
+      [3, 3, 4],
+      [owner.address],
+    );
     await splitter.waitForDeployment();
 
     // Deploy mock tokens with correct decimals

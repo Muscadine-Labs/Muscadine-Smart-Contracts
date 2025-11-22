@@ -36,7 +36,6 @@ contracts/
       deployV2.ts
       upgradeV2.ts
     README.md                      # Contract documentation
-    UPGRADE_GUIDE.md               # Upgrade instructions
     OWNERSHIP.md                   # Ownership setup guide
     TEST_COVERAGE.md               # Test coverage details
   mocks/                          # Shared mocks (used by multiple contracts)
@@ -72,14 +71,14 @@ Ultra-minimal, fully immutable fee splitter smart contract for ERC20 tokens.
 
 ### ERC20FeeSplitterV2 (V2)
 
-Upgradeable fee splitter with dynamic payee management and owner controls.
+Fee splitter with dynamic payee management and owner controls.
 
 **Features:**
-- **Upgradeable** - UUPS proxy pattern, upgradeable by owner
 - **Dynamic Payees** - Add, remove, and update payees and shares
 - **Multiple Payees** - Supports 3+ payees (currently: Ignas, Nick, Muscadine Labs)
-- **Owner Controls** - Owner can manage payees and upgrade contract
+- **Owner Controls** - Owner can manage payees and shares (upgrades disabled)
 - **All V1 Features** - Deflationary tokens, vault tokens, reentrancy protection
+- **Not Upgradeable** - Contract cannot be upgraded after deployment
 
 **Initial Configuration:**
 - Ignas: 3 shares (1.5%)
@@ -154,7 +153,7 @@ npm run deploy:base
 npx hardhat run contracts/ERC20FeeSplitter/scripts/deployImmutable.ts --network base
 ```
 
-### Deploy V2 (Upgradeable) to Base Mainnet
+### Deploy V2 to Base Mainnet
 ```bash
 npm run deploy:v2:base
 # or
@@ -226,9 +225,14 @@ V2 includes comprehensive scripts for contract management. See [contracts/ERC20F
 - **Claim All:** `CONTRACT_ADDRESS=0x... TOKEN_ADDRESS=0x... npm run claim:v2:base`
 - **Manage Payees:** `CONTRACT_ADDRESS=0x... ACTION=add PAYEE=0x... SHARES=2 npm run manage:v2:base`
 - **Transfer Owner:** `CONTRACT_ADDRESS=0x... NEW_OWNER=0x... npm run transfer-owner:v2:base`
-- **Upgrade:** `PROXY_ADDRESS=0x... npm run upgrade:v2:base`
 
-**Environment Variables:** See `.env.example` for all required variables.
+**Environment Variables:**
+- `PRIVATE_KEY` - Your deployment wallet private key
+- `BASE_RPC_URL` - Base network RPC URL (optional, defaults to public RPC)
+- `BASESCAN_API_KEY` - Basescan API key for contract verification
+- `OWNER_ADDRESS` - Contract owner address (optional, defaults to Nick's wallet)
+- `CONTRACT_ADDRESS` - Proxy address for scripts (when interacting with deployed contract)
+- `TOKEN_ADDRESS` - ERC20 token address (for claim/check scripts)
 
 ## Development
 
@@ -273,16 +277,15 @@ The repository is configured to automatically find and compile all contracts in 
 - If you need changes, deploy a new contract
 
 ### ERC20FeeSplitterV2 (V2)
-- **Upgradeable** - Owner can upgrade implementation (use multi-sig!)
-- **Owner Controls** - Owner can manage payees and upgrade
-- **Access Control** - Owner-only functions for management
-- **UUPS Pattern** - Secure upgradeability pattern
+- **Owner Controls** - Owner can manage payees and shares (upgrades disabled)
+- **Access Control** - Owner-only functions for payee management
 - **All V1 Security** - Reentrancy protection, OpenZeppelin libraries
+- **Not Upgradeable** - Contract cannot be upgraded after deployment
 
-⚠️ **V2 is UPGRADEABLE:**
-- Owner has significant privileges
+⚠️ **V2 Owner Privileges:**
+- Owner can add/remove/update payees and shares
+- Owner **cannot** upgrade the contract (upgrades disabled)
 - **Use multi-sig wallet as owner in production**
-- Can upgrade contract, add/remove payees, update shares
 - See [SECURITY.md](./SECURITY.md) for detailed security practices
 
 See [SECURITY.md](./SECURITY.md) for comprehensive security information.

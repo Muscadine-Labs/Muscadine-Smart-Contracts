@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers, upgrades } from "hardhat";
+import { ethers } from "hardhat";
 import { ERC20FeeSplitterV2, ERC20Mock } from "../../../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
@@ -21,15 +21,11 @@ describe("ERC20FeeSplitterV2", function () {
 
     // Deploy ERC20FeeSplitterV2 with initial configuration
     const ERC20FeeSplitterV2Factory = await ethers.getContractFactory("ERC20FeeSplitterV2");
-    splitter = (await upgrades.deployProxy(
-      ERC20FeeSplitterV2Factory,
-      [
-        [IGNAS_ADDRESS, NICK_ADDRESS, MUSCADINE_ADDRESS],
-        [3, 3, 4], // 3 + 3 + 4 = 10 shares total
-        owner.address,
-      ],
-      { kind: "uups", initializer: "initialize" },
-    )) as unknown as ERC20FeeSplitterV2;
+    splitter = await ERC20FeeSplitterV2Factory.deploy(
+      [IGNAS_ADDRESS, NICK_ADDRESS, MUSCADINE_ADDRESS],
+      [3, 3, 4], // 3 + 3 + 4 = 10 shares total
+      [owner.address], // Array of initial owners
+    );
     await splitter.waitForDeployment();
 
     // Deploy mock ERC20 token
@@ -42,7 +38,8 @@ describe("ERC20FeeSplitterV2", function () {
 
   describe("Deployment", function () {
     it("should initialize with correct payees and shares", async function () {
-      expect(await splitter.owner()).to.equal(owner.address);
+      expect(await splitter.isOwner(owner.address)).to.be.true;
+      expect(await splitter.getOwnerCount()).to.equal(1);
       expect(await splitter.totalShares()).to.equal(10);
       expect(await splitter.getPayeeCount()).to.equal(3);
 
@@ -128,7 +125,7 @@ describe("ERC20FeeSplitterV2", function () {
     it("should not allow non-owner to add payee", async function () {
       await expect(
         splitter.connect(stranger).addPayee(stranger.address, 1),
-      ).to.be.revertedWithCustomError(splitter, "OwnableUnauthorizedAccount");
+      ).to.be.revertedWithCustomError(splitter, "NotOwner");
     });
 
     it("should not allow adding duplicate payee", async function () {
@@ -190,15 +187,39 @@ describe("ERC20FeeSplitterV2", function () {
   });
 
   describe("Ownership", function () {
-    it("should allow owner to transfer ownership", async function () {
-      await splitter.transferOwnership(nick.address);
-      expect(await splitter.owner()).to.equal(nick.address);
+    it("should allow owner to add a new owner", async function () {
+      await splitter.addOwner(nick.address);
+      expect(await splitter.isOwner(nick.address)).to.be.true;
+      expect(await splitter.getOwnerCount()).to.equal(2);
     });
 
-    it("should not allow non-owner to transfer ownership", async function () {
+    it("should allow owner to remove an owner", async function () {
+      await splitter.addOwner(nick.address);
+      expect(await splitter.getOwnerCount()).to.equal(2);
+      
+      await splitter.removeOwner(nick.address);
+      expect(await splitter.isOwner(nick.address)).to.be.false;
+      expect(await splitter.getOwnerCount()).to.equal(1);
+    });
+
+    it("should not allow removing the last owner", async function () {
       await expect(
-        splitter.connect(stranger).transferOwnership(stranger.address),
-      ).to.be.revertedWithCustomError(splitter, "OwnableUnauthorizedAccount");
+        splitter.removeOwner(owner.address),
+      ).to.be.revertedWithCustomError(splitter, "CannotRemoveLastOwner");
+    });
+
+    it("should not allow non-owner to add owner", async function () {
+      await expect(
+        splitter.connect(stranger).addOwner(stranger.address),
+      ).to.be.revertedWithCustomError(splitter, "NotOwner");
+    });
+
+    it("should return all owners", async function () {
+      await splitter.addOwner(nick.address);
+      const allOwners = await splitter.getAllOwners();
+      expect(allOwners.length).to.equal(2);
+      expect(allOwners).to.include(owner.address);
+      expect(allOwners).to.include(nick.address);
     });
   });
 

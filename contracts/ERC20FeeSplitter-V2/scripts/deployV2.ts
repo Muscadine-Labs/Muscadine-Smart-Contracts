@@ -1,13 +1,14 @@
-import { ethers, upgrades, run } from "hardhat";
+import { ethers, run } from "hardhat";
 
 /**
- * Deploy ERC20FeeSplitterV2 - Upgradeable fee splitter with dynamic payee management
+ * Deploy ERC20FeeSplitterV2 - Fee splitter with dynamic payee management and multi-owner support
  *
  * Initial Configuration:
  * - Ignas: 3 shares (1.5%)
  * - Nick: 3 shares (1.5%)
  * - Muscadine Labs: 4 shares (2.0%)
  * - Total: 10 shares (5%)
+ * - Owners: Set via OWNER_ADDRESSES env var (comma-separated) or defaults to Nick's wallet
  */
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -27,8 +28,11 @@ async function main() {
   const initialPayees = [IGNAS, NICK, MUSCADINE_LABS];
   const initialShares = [3, 3, 4]; // Total: 10 shares (5% of fees)
 
-  // Owner can be set via environment variable (for multi-sig) or defaults to Nick's wallet
-  const OWNER = process.env.OWNER_ADDRESS || NICK;
+  // Owners can be set via environment variable (comma-separated) or defaults to Nick's wallet
+  const OWNERS_ENV = process.env.OWNER_ADDRESSES || process.env.OWNER_ADDRESS;
+  const initialOwners = OWNERS_ENV
+    ? OWNERS_ENV.split(",").map((addr) => addr.trim())
+    : [NICK]; // Default to Nick's wallet
 
   console.log("\n=== Initial Configuration ===");
   console.log("Ignas:        ", IGNAS, "(3 shares, 1.5%)");
@@ -39,60 +43,60 @@ async function main() {
     initialShares.reduce((a, b) => a + b, 0),
     "(5%)",
   );
-  console.log("Owner:        ", OWNER);
-  if (OWNER === NICK) {
-    console.log("             (Nick's wallet)");
-  } else if (OWNER !== deployer.address) {
-    console.log("             (Custom owner address)");
+  console.log("Owners:       ", initialOwners.length, "owner(s)");
+  for (let i = 0; i < initialOwners.length; i++) {
+    console.log(`  Owner ${i + 1}:`, initialOwners[i]);
   }
 
-  // Deploy implementation and proxy
+  // Deploy contract directly (no proxy)
   const ERC20FeeSplitterV2 = await ethers.getContractFactory("ERC20FeeSplitterV2");
 
-  console.log("\nDeploying upgradeable contract (UUPS proxy)...");
-  const splitter = await upgrades.deployProxy(
-    ERC20FeeSplitterV2,
-    [initialPayees, initialShares, OWNER],
-    { kind: "uups", initializer: "initialize" },
-  );
+  console.log("\nDeploying contract...");
+  const splitter = await ERC20FeeSplitterV2.deploy(initialPayees, initialShares, initialOwners);
   await splitter.waitForDeployment();
-
-  const proxyAddress = await splitter.getAddress();
-  const implementationAddress = await upgrades.erc1967.getImplementationAddress(proxyAddress);
+  const contractAddress = await splitter.getAddress();
 
   console.log("\n=== Deployment Successful ===");
-  console.log("Proxy address:        ", proxyAddress);
-  console.log("Implementation address:", implementationAddress);
+  console.log("Contract address:     ", contractAddress);
 
   // Verify configuration
   console.log("\n=== Configuration Verification ===");
-  console.log("Owner:", await splitter.owner());
-  console.log("Total shares:", await splitter.totalShares());
-  console.log("Payee count:", await splitter.getPayeeCount());
+  try {
+    const ownerCount = await splitter.getOwnerCount();
+    console.log("Owner count:", ownerCount);
+    const allOwners = await splitter.getAllOwners();
+    console.log("Owners:", allOwners);
+    const totalShares = await splitter.totalShares();
+    console.log("Total shares:", totalShares);
+    const payeeCount = await splitter.getPayeeCount();
+    console.log("Payee count:", payeeCount);
+  } catch (error: any) {
+    console.log("⚠️  Warning: Could not verify configuration:", error.message);
+    console.log("   The contract may need a moment to initialize on-chain.");
+    console.log("   You can verify manually by calling the contract functions.");
+  }
 
-  const allPayees = await splitter.getAllPayees();
-  for (let i = 0; i < allPayees.length; i++) {
-    const payee = allPayees[i];
-    const info = await splitter.getPayeeInfo(payee);
-    const percentage = (Number(info.shares) / Number(await splitter.totalShares())) * 100;
-    console.log(`Payee ${i + 1}: ${payee} - ${info.shares} shares (${percentage}%)`);
+  try {
+    const allPayees = await splitter.getAllPayees();
+    for (let i = 0; i < allPayees.length; i++) {
+      const payee = allPayees[i];
+      const info = await splitter.getPayeeInfo(payee);
+      const percentage = (Number(info.shares) / Number(await splitter.totalShares())) * 100;
+      console.log(`Payee ${i + 1}: ${payee} - ${info.shares} shares (${percentage}%)`);
+    }
+  } catch (error: any) {
+    console.log("⚠️  Could not retrieve payee information:", error.message);
   }
 
   console.log("\n=== Important ===");
-  console.log("This contract is UPGRADEABLE:");
-  console.log("- Owner can upgrade the contract implementation");
-  console.log("- Owner can add/remove/update payees");
-  console.log("- Owner can transfer ownership");
+  console.log("This contract is IMMUTABLE:");
+  console.log("- Contract cannot be upgraded");
+  console.log("- Owners can add/remove/update payees");
+  console.log("- Owners can add/remove other owners");
   console.log("");
-  console.log("⚠️  SECURITY: The contract uses a single owner address.");
-  console.log("   For production, use a MULTI-SIG WALLET as the owner.");
-  console.log("   This way multiple signatures are required for upgrades/changes,");
-  console.log("   but the contract still sees it as a single owner address.");
-  console.log("");
-  console.log("To upgrade in the future:");
-  console.log("1. Deploy new implementation");
-  console.log("2. Call upgrade() from owner account");
-  console.log("3. Proxy address remains the same");
+  console.log("⚠️  SECURITY: The contract supports multiple owners.");
+  console.log("   For production, add multiple owners for better security.");
+  console.log("   Each owner can manage payees and other owners.");
 
   // Automatic verification (if BASESCAN_API_KEY is set)
   const basescanApiKey = process.env.BASESCAN_API_KEY;
@@ -107,52 +111,31 @@ async function main() {
       console.log("Waiting for Basescan to index contracts...");
       await new Promise((resolve) => setTimeout(resolve, 10000)); // 10 seconds
 
-      // Verify implementation contract
-      console.log("Verifying implementation contract...");
+      // Verify contract
+      console.log("Verifying contract...");
       try {
         await run("verify:verify", {
-          address: implementationAddress,
-          constructorArguments: [],
+          address: contractAddress,
+          constructorArguments: [initialPayees, initialShares, initialOwners],
         });
-        console.log("✅ Implementation contract verified!");
+        console.log("✅ Contract verified!");
       } catch (error: any) {
         if (error.message?.includes("Already Verified")) {
-          console.log("✅ Implementation contract already verified");
+          console.log("✅ Contract already verified");
         } else {
-          console.log("⚠️  Implementation verification failed:", error.message);
+          console.log("⚠️  Contract verification failed:", error.message);
           console.log(
-            `   Manual verification: npx hardhat verify --network base ${implementationAddress}`,
+            `   Manual verification: npx hardhat verify --network base ${contractAddress} "${initialPayees}" "${initialShares}" "${initialOwners}"`,
           );
         }
       }
 
-      // Wait a bit more
-      await new Promise((resolve) => setTimeout(resolve, 5000)); // 5 seconds
-
-      // Verify proxy contract
-      console.log("Verifying proxy contract...");
-      try {
-        await run("verify:verify", {
-          address: proxyAddress,
-          constructorArguments: [],
-        });
-        console.log("✅ Proxy contract verified!");
-      } catch (error: any) {
-        if (error.message?.includes("Already Verified")) {
-          console.log("✅ Proxy contract already verified");
-        } else {
-          console.log("⚠️  Proxy verification failed:", error.message);
-          console.log(`   Manual verification: npx hardhat verify --network base ${proxyAddress}`);
-        }
-      }
-
       console.log("\n✅ Verification complete!");
-      console.log(`View on Basescan: https://basescan.org/address/${proxyAddress}`);
+      console.log(`View on Basescan: https://basescan.org/address/${contractAddress}`);
     } catch (error: any) {
       console.log("\n⚠️  Automatic verification encountered an error");
       console.log("You can verify manually:");
-      console.log(`   npx hardhat verify --network base ${implementationAddress}`);
-      console.log(`   npx hardhat verify --network base ${proxyAddress}`);
+      console.log(`   npx hardhat verify --network base ${contractAddress} "${initialPayees}" "${initialShares}" "${initialOwners}"`);
     }
   } else {
     console.log("\n=== Next Steps ===");
@@ -162,11 +145,8 @@ async function main() {
     if (!isBaseNetwork) {
       console.log("⚠️  Not on Base network - skipping automatic verification");
     }
-    console.log("1. Verify proxy contract on Basescan:");
-    console.log(`   npx hardhat verify --network base ${proxyAddress}`);
-    console.log("");
-    console.log("2. Verify implementation contract:");
-    console.log(`   npx hardhat verify --network base ${implementationAddress}`);
+    console.log("Verify contract on Basescan:");
+    console.log(`   npx hardhat verify --network base ${contractAddress} "${initialPayees}" "${initialShares}" "${initialOwners}"`);
     console.log("");
   }
 
@@ -183,14 +163,12 @@ async function main() {
     chainId: (await ethers.provider.getNetwork()).chainId,
     deployer: deployer.address,
     timestamp: new Date().toISOString(),
-    proxy: proxyAddress,
-    implementation: implementationAddress,
+    contractAddress: contractAddress,
     payees: initialPayees,
     shares: initialShares,
     totalShares: initialShares.reduce((a, b) => a + b, 0),
-    owner: OWNER,
-    upgradeable: true,
-    upgradePattern: "UUPS",
+    owners: initialOwners,
+    ownerCount: initialOwners.length,
   };
 
   console.log("\n=== Deployment Info (SAVE THIS) ===");

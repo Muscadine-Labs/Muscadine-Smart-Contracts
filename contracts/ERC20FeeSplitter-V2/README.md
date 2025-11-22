@@ -1,10 +1,10 @@
 # ERC20FeeSplitterV2
 
-Upgradeable fee splitter smart contract with dynamic payee management and owner controls.
+Fee splitter smart contract with dynamic payee management and owner controls.
 
 ## Overview
 
-ERC20FeeSplitterV2 is an upgradeable version of the fee splitter that supports multiple payees, dynamic payee management, and owner-controlled upgrades. It uses the UUPS (Universal Upgradeable Proxy Standard) pattern for upgradeability while maintaining all the security features of V1.
+ERC20FeeSplitterV2 is a fee splitter that supports multiple payees and dynamic payee management. The owner can add, remove, and update payees and their shares. The contract uses a proxy pattern for deployment but **upgrades are disabled** - the contract cannot be upgraded after deployment.
 
 **✅ Ready for Deployment:**
 - All 33 tests passing
@@ -14,21 +14,21 @@ ERC20FeeSplitterV2 is an upgradeable version of the fee splitter that supports m
 
 ## Features
 
-- ✅ **Upgradeable** - UUPS proxy pattern, upgradeable by owner
 - ✅ **Dynamic Payees** - Add, remove, and update payees and shares
 - ✅ **Multiple Payees** - Supports any number of payees (not just 2)
-- ✅ **Owner Controls** - Owner can manage payees and upgrade contract
+- ✅ **Owner Controls** - Owner can manage payees and shares (upgrades disabled)
 - ✅ **ERC20 Compatible** - Supports any ERC20 token including vault shares
 - ✅ **Reentrancy Protected** - Uses OpenZeppelin's ReentrancyGuard
 - ✅ **Deflationary Token Support** - Uses "actual-sent" accounting
 - ✅ **Comprehensive Tests** - 33 tests covering all functionality
+- ⚠️ **Not Upgradeable** - Contract cannot be upgraded after deployment
 
 ## Contract Details
 
 **Contract:** `ERC20FeeSplitterV2.sol`  
 **License:** MIT  
 **Solidity Version:** 0.8.24  
-**Upgrade Pattern:** UUPS (Universal Upgradeable Proxy Standard)
+**Deployment Pattern:** Proxy (UUPS pattern, but upgrades disabled)
 
 ### Initial Configuration
 
@@ -154,9 +154,10 @@ splitter.removePayee(payeeAddress);
    npm install
    ```
 
-2. Create `.env` file (see `.env.example`):
+2. Create `.env` file:
    ```bash
    PRIVATE_KEY=your_private_key
+   BASE_RPC_URL=https://base-rpc.publicnode.com
    BASESCAN_API_KEY=your_api_key
    OWNER_ADDRESS=0x... # Optional, defaults to Nick's wallet
    ```
@@ -194,18 +195,11 @@ npx hardhat verify --network base <PROXY_ADDRESS>
 
 **Note:** The proxy address is what users interact with. After verification, you can call all functions from Basescan using the proxy address.
 
-## Upgrading
+## Important: Upgrades Disabled
 
-See [UPGRADE_GUIDE.md](./UPGRADE_GUIDE.md) for detailed upgrade instructions.
+⚠️ **This contract cannot be upgraded.** The upgrade functionality has been permanently disabled. The contract is immutable after deployment.
 
-Quick upgrade:
-```bash
-# Set proxy address in .env
-PROXY_ADDRESS=0xYourProxyAddress
-
-# Run upgrade
-npm run upgrade:v2:base
-```
+If you need to make changes, you must deploy a new contract.
 
 ## Scripts
 
@@ -303,22 +297,6 @@ CONTRACT_ADDRESS=0x... NEW_OWNER=0x... npm run transfer-owner:v2:base
 
 ---
 
-### Upgrade Contract (Owner Only)
-
-Upgrade the contract implementation:
-
-```bash
-PROXY_ADDRESS=0x... npm run upgrade:v2:base
-```
-
-**Environment Variables:**
-- `PROXY_ADDRESS` - Proxy address of the deployed contract
-
-**Requirements:**
-- Must be run by the contract owner
-- See [UPGRADE_GUIDE.md](./UPGRADE_GUIDE.md) for detailed instructions
-
----
 
 ### Script Summary
 
@@ -328,7 +306,6 @@ PROXY_ADDRESS=0x... npm run upgrade:v2:base
 | Claim All | `npm run claim:v2:base` | Anyone | `CONTRACT_ADDRESS`, `TOKEN_ADDRESS` |
 | Manage Payees | `npm run manage:v2:base` | Owner | `CONTRACT_ADDRESS`, `ACTION`, `PAYEE`, `SHARES` (if add/update) |
 | Transfer Owner | `npm run transfer-owner:v2:base` | Owner | `CONTRACT_ADDRESS`, `NEW_OWNER` |
-| Upgrade | `npm run upgrade:v2:base` | Owner | `PROXY_ADDRESS` |
 
 **All scripts can also be run directly:**
 ```bash
@@ -409,13 +386,14 @@ The contract uses OpenZeppelin's `OwnableUpgradeable`, which supports **a single
 ### Owner Privileges
 
 The contract owner has the following privileges:
-- ✅ Upgrade the contract implementation (`_authorizeUpgrade`)
 - ✅ Add new payees (`addPayee`)
 - ✅ Remove payees (`removePayee`)
 - ✅ Update payee shares (`updatePayeeShares`)
 - ✅ Transfer ownership (`transferOwnership`)
 
-**All of these require owner approval**, so using a multi-sig ensures multiple people must approve any changes.
+**Note:** Upgrades are disabled - the owner cannot upgrade the contract implementation.
+
+**All owner functions require owner approval**, so using a multi-sig ensures multiple people must approve any changes.
 
 ### Security Best Practices
 
@@ -427,11 +405,11 @@ The contract owner has the following privileges:
 
 ## Security
 
-### Upgradeability
+### Immutability
 
-⚠️ **This contract is UPGRADEABLE:**
-- Owner can upgrade the contract implementation
-- Owner can add/remove/update payees
+⚠️ **This contract is NOT upgradeable:**
+- Contract implementation cannot be changed after deployment
+- Owner can only manage payees and shares
 - **Use multi-sig wallet as owner in production!**
 
 ### Security Features
@@ -442,16 +420,16 @@ The contract owner has the following privileges:
 - ✅ **Actual-Sent Accounting** - Handles deflationary tokens correctly
 - ✅ **Zero Address Checks** - Prevents invalid addresses
 - ✅ **Division by Zero Protection** - Checks totalShares > 0
-- ✅ **UUPS Pattern** - Secure upgradeability pattern
 - ✅ **OpenZeppelin Libraries** - Industry-standard secure code
+- ✅ **Upgrades Disabled** - Contract cannot be upgraded after deployment
 
 ### Best Practices
 
 1. **Use Multi-Sig for Owner** - Never use a single private key
-2. **Test Upgrades on Testnet** - Always test upgrades before mainnet
-3. **Audit Before Deployment** - Have contracts audited by professionals
-4. **Monitor Activity** - Set up monitoring for contract events
-5. **Secure Keys** - Use hardware wallets for owner accounts
+2. **Audit Before Deployment** - Have contracts audited by professionals
+3. **Monitor Activity** - Set up monitoring for contract events
+4. **Secure Keys** - Use hardware wallets for owner accounts
+5. **Test on Testnet First** - Always test on testnet before mainnet deployment
 
 ## Differences from V1
 
@@ -459,8 +437,8 @@ The contract owner has the following privileges:
 |---------|----|----|
 | Payees | Fixed 2 | Dynamic (any number) |
 | Shares | Fixed 1:1 | Dynamic (configurable) |
-| Owner | None (immutable) | Owner-controlled |
-| Upgradeable | No | Yes (UUPS) |
+| Owner | None (immutable) | Owner-controlled (payee management only) |
+| Upgradeable | No | No (upgrades disabled) |
 | Payee Management | None | Add/Remove/Update |
 
 ## When to Use This Contract
@@ -468,8 +446,8 @@ The contract owner has the following privileges:
 Use ERC20FeeSplitterV2 when:
 - ✅ You need to manage multiple payees (3+)
 - ✅ You need to change payees or shares over time
-- ✅ You want upgradeability for future improvements
-- ✅ You need owner controls for management
+- ✅ You need owner controls for payee management
+- ✅ You want a contract that cannot be upgraded (immutable implementation)
 
 **For simple, immutable 2-payee splitter, use [ERC20FeeSplitter](../ERC20FeeSplitter/README.md)**
 

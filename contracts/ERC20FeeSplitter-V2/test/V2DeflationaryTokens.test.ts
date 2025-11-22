@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers, upgrades } from "hardhat";
+import { ethers } from "hardhat";
 import { ERC20FeeSplitterV2, ERC20Mock, DeflationaryMock } from "../../../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
@@ -16,15 +16,11 @@ describe("ERC20FeeSplitterV2 - Deflationary Token Support", function () {
 
     // Deploy ERC20FeeSplitterV2 with 3 payees (3:3:4 shares)
     const ERC20FeeSplitterV2Factory = await ethers.getContractFactory("ERC20FeeSplitterV2");
-    splitter = (await upgrades.deployProxy(
-      ERC20FeeSplitterV2Factory,
-      [
-        [await payee1.getAddress(), await payee2.getAddress(), await payee3.getAddress()],
-        [3, 3, 4],
-        owner.address,
-      ],
-      { kind: "uups", initializer: "initialize" },
-    )) as unknown as ERC20FeeSplitterV2;
+    splitter = await ERC20FeeSplitterV2Factory.deploy(
+      [await payee1.getAddress(), await payee2.getAddress(), await payee3.getAddress()],
+      [3, 3, 4],
+      [owner.address],
+    );
     await splitter.waitForDeployment();
 
     // Deploy deflationary token (1% burn on transfer)

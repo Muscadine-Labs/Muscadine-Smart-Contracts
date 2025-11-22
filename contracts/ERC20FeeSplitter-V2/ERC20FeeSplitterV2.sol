@@ -3,16 +3,14 @@ pragma solidity ^0.8.24;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title ERC20FeeSplitterV2
-/// @notice Upgradeable fee splitter for ERC20 tokens with dynamic payee management
-/// @dev Uses UUPS upgradeability pattern, supports multiple payees with configurable shares
+/// @notice Fee splitter for ERC20 tokens with dynamic payee management
+/// @dev Supports multiple payees with configurable shares
 ///      Uses "actual-sent" accounting for ERC20 to support fee-on-transfer tokens
-contract ERC20FeeSplitterV2 is Initializable, ReentrancyGuardUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
+///      Supports multiple owners for access control
+contract ERC20FeeSplitterV2 is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     // --- custom errors ---
@@ -23,6 +21,10 @@ contract ERC20FeeSplitterV2 is Initializable, ReentrancyGuardUpgradeable, Ownabl
     error NothingDue();
     error TokenTransferFailed();
     error NoPayees();
+    error NotOwner();
+    error OwnerNotFound();
+    error OwnerAlreadyExists();
+    error CannotRemoveLastOwner();
 
     // --- storage ---
     struct PayeeInfo {
@@ -35,6 +37,10 @@ contract ERC20FeeSplitterV2 is Initializable, ReentrancyGuardUpgradeable, Ownabl
     address[] public payeeList;
     uint256 public totalShares;
 
+    // --- owner management ---
+    mapping(address => bool) public owners;
+    address[] public ownerList;
+
     // --- mutable accounting ---
     mapping(IERC20 => mapping(address => uint256)) private _releasedERC20;
     mapping(IERC20 => uint256) private _totalReleasedERC20;
@@ -44,28 +50,32 @@ contract ERC20FeeSplitterV2 is Initializable, ReentrancyGuardUpgradeable, Ownabl
     event PayeeAdded(address indexed payee, uint256 shares);
     event PayeeRemoved(address indexed payee);
     event PayeeUpdated(address indexed payee, uint256 oldShares, uint256 newShares);
+    event OwnerAdded(address indexed owner);
+    event OwnerRemoved(address indexed owner);
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    /// @notice Initialize the contract with initial payees
+    /// @notice Constructor - Initialize the contract with initial payees and owners
     /// @param initialPayees Array of payee addresses
     /// @param initialShares Array of shares for each payee (must match length of initialPayees)
-    /// @param owner_ Address that will own the contract
-    function initialize(
+    /// @param initialOwners Array of owner addresses (must have at least one owner)
+    constructor(
         address[] memory initialPayees,
         uint256[] memory initialShares,
-        address owner_
-    ) public initializer {
-        __ReentrancyGuard_init();
-        __Ownable_init(owner_);
-        __UUPSUpgradeable_init();
-
+        address[] memory initialOwners
+    ) {
+        if (initialOwners.length == 0) revert InvalidPayee(); // Must have at least one owner
         if (initialPayees.length == 0) revert NoPayees();
         if (initialPayees.length != initialShares.length) revert InvalidShares();
 
+        // Initialize owners
+        for (uint256 i = 0; i < initialOwners.length; i++) {
+            if (initialOwners[i] == address(0)) revert InvalidPayee();
+            if (owners[initialOwners[i]]) revert OwnerAlreadyExists();
+            owners[initialOwners[i]] = true;
+            ownerList.push(initialOwners[i]);
+            emit OwnerAdded(initialOwners[i]);
+        }
+
+        // Initialize payees
         uint256 total = 0;
         for (uint256 i = 0; i < initialPayees.length; i++) {
             if (initialPayees[i] == address(0)) revert InvalidPayee();
@@ -104,6 +114,24 @@ contract ERC20FeeSplitterV2 is Initializable, ReentrancyGuardUpgradeable, Ownabl
 
     function getAllPayees() public view returns (address[] memory) {
         return payeeList;
+    }
+
+    function getOwnerCount() public view returns (uint256) {
+        return ownerList.length;
+    }
+
+    function getAllOwners() public view returns (address[] memory) {
+        return ownerList;
+    }
+
+    function isOwner(address account) public view returns (bool) {
+        return owners[account];
+    }
+
+    // --- modifiers ---
+    modifier onlyOwner() {
+        if (!owners[msg.sender]) revert NotOwner();
+        _;
     }
 
     // --- claim functions ---
@@ -197,11 +225,32 @@ contract ERC20FeeSplitterV2 is Initializable, ReentrancyGuardUpgradeable, Ownabl
         emit PayeeUpdated(payee, oldShares, newShares);
     }
 
-    function transferOwnership(address newOwner) public override onlyOwner {
+    // --- owner management functions ---
+    function addOwner(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert InvalidPayee();
-        super.transferOwnership(newOwner);
+        if (owners[newOwner]) revert OwnerAlreadyExists();
+
+        owners[newOwner] = true;
+        ownerList.push(newOwner);
+        emit OwnerAdded(newOwner);
     }
 
-    // --- upgrade functions ---
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    function removeOwner(address ownerToRemove) external onlyOwner {
+        if (!owners[ownerToRemove]) revert OwnerNotFound();
+        if (ownerList.length == 1) revert CannotRemoveLastOwner();
+
+        delete owners[ownerToRemove];
+
+        // Remove from array
+        uint256 length = ownerList.length;
+        for (uint256 i = 0; i < length; i++) {
+            if (ownerList[i] == ownerToRemove) {
+                ownerList[i] = ownerList[length - 1];
+                ownerList.pop();
+                break;
+            }
+        }
+
+        emit OwnerRemoved(ownerToRemove);
+    }
 }
