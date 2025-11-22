@@ -51,7 +51,10 @@ ERC20FeeSplitterV2 is a fee splitter that supports multiple payees and dynamic p
 | `payees(address payee)` | `PayeeInfo` | Get payee struct (payee, shares, exists) |
 | `payeeList(uint256 index)` | `address` | Get payee address by array index |
 | `totalShares()` | `uint256` | Get total shares across all payees |
-| `owner()` | `address` | Get contract owner address |
+| `getOwnerCount()` | `uint256` | Get total number of owners |
+| `getAllOwners()` | `address[]` | Get array of all owner addresses |
+| `isOwner(address account)` | `bool` | Check if an address is an owner |
+| `owners(address account)` | `bool` | Check if an address is an owner (mapping) |
 
 **Key Function: `pendingToken`**
 ```solidity
@@ -90,7 +93,8 @@ splitter.claimAll(usdcToken);
 | `addPayee(address payee, uint256 shares)` | Add a new payee with specified shares | `onlyOwner` |
 | `removePayee(address payee)` | Remove a payee (cannot remove last payee) | `onlyOwner` |
 | `updatePayeeShares(address payee, uint256 newShares)` | Update shares for an existing payee | `onlyOwner` |
-| `transferOwnership(address newOwner)` | Transfer ownership to a new address | `onlyOwner` |
+| `addOwner(address newOwner)` | Add a new owner | `onlyOwner` |
+| `removeOwner(address ownerToRemove)` | Remove an owner (cannot remove last owner) | `onlyOwner` |
 
 **Usage:**
 ```solidity
@@ -103,8 +107,11 @@ splitter.updatePayeeShares(ignasAddress, 5);
 // Remove a payee
 splitter.removePayee(oldPayee);
 
-// Transfer ownership to multi-sig
-splitter.transferOwnership(multiSigAddress);
+// Add a new owner
+splitter.addOwner(newOwnerAddress);
+
+// Remove an owner
+splitter.removeOwner(ownerToRemove);
 ```
 
 ## Events
@@ -343,29 +350,35 @@ npm run test:coverage
 - Token compatibility (standard, deflationary, vault tokens, rebasing)
 - Edge cases (zero amounts, precision, multiple claims)
 
-## Ownership & Multi-Sig Setup
+## Ownership & Multi-Owner System
 
 ### Current Implementation
 
-The contract uses OpenZeppelin's `OwnableUpgradeable`, which supports **a single owner address**.
+The contract uses a **custom multi-owner system** that supports **multiple owner addresses**. This provides flexibility and security without requiring a separate multi-sig wallet contract.
+
+**Key Features:**
+- Multiple owners can be added/removed dynamically
+- At least one owner must always exist (cannot remove the last owner)
+- All owners have equal privileges
+- Owners can manage payees and other owners
 
 ### Recommended: Multi-Sig Wallet as Owner
 
 **How it works:**
 1. Deploy a multi-sig wallet (e.g., Gnosis Safe)
-2. Set the multi-sig wallet address as the contract owner during deployment
-3. The contract sees it as a single owner address
-4. But the multi-sig wallet requires multiple signatures to execute any transaction
+2. Set the multi-sig wallet address as one of the initial owners during deployment
+3. Optionally add additional owners (individual addresses or other multi-sigs)
+4. The multi-sig wallet requires multiple signatures to execute any transaction
 
 **Benefits:**
-- ✅ **Security**: Requires multiple approvals for upgrades/changes
-- ✅ **No contract changes needed**: Works with existing `OwnableUpgradeable`
+- ✅ **Security**: Requires multiple approvals for changes
+- ✅ **Flexibility**: Can have multiple owners (multi-sigs or individual addresses)
 - ✅ **Standard practice**: Used by most DeFi protocols
-- ✅ **Flexible**: Can configure threshold (e.g., 2-of-3, 3-of-5)
+- ✅ **Flexible**: Can configure threshold per multi-sig (e.g., 2-of-3, 3-of-5)
 
 ### Setup Steps
 
-1. **Create Multi-Sig Wallet**:
+1. **Create Multi-Sig Wallet** (Optional but Recommended):
    - Go to https://safe.global
    - Create a new Safe on Base network
    - Add owners (e.g., Nick, Ignas, Muscadine Labs)
@@ -375,13 +388,13 @@ The contract uses OpenZeppelin's `OwnableUpgradeable`, which supports **a single
 2. **Deploy Contract**:
    ```typescript
    const MULTI_SIG_ADDRESS = "0x..."; // Your Safe address
-   // Use MULTI_SIG_ADDRESS as owner in deployment
+   const OWNER_ADDRESSES = [MULTI_SIG_ADDRESS, "0x..."]; // Can have multiple owners
+   // Use OWNER_ADDRESSES array in deployment
    ```
 
-3. **Upgrade Process** (requires multi-sig approval):
-   - Propose upgrade transaction in Safe
-   - Get required number of approvals
-   - Execute upgrade
+3. **Manage Owners**:
+   - Add owners: `splitter.addOwner(newOwnerAddress)`
+   - Remove owners: `splitter.removeOwner(ownerToRemove)` (cannot remove last owner)
 
 ### Owner Privileges
 
@@ -389,7 +402,7 @@ The contract owner has the following privileges:
 - ✅ Add new payees (`addPayee`)
 - ✅ Remove payees (`removePayee`)
 - ✅ Update payee shares (`updatePayeeShares`)
-- ✅ Transfer ownership (`transferOwnership`)
+- ✅ Add/remove owners (`addOwner`, `removeOwner`)
 
 **Note:** Upgrades are disabled - the owner cannot upgrade the contract implementation.
 

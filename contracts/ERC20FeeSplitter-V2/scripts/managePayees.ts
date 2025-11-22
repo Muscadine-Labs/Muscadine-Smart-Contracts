@@ -44,9 +44,10 @@ async function main() {
   )) as ERC20FeeSplitterV2;
 
   // Verify caller is owner
-  const owner = await splitter.owner();
-  if (signer.address.toLowerCase() !== owner.toLowerCase()) {
-    throw new Error(`Only owner can manage payees. Owner: ${owner}, Caller: ${signer.address}`);
+  const isOwner = await splitter.isOwner(signer.address);
+  if (!isOwner) {
+    const allOwners = await splitter.getAllOwners();
+    throw new Error(`Only owners can manage payees. Owners: ${allOwners.join(", ")}, Caller: ${signer.address}`);
   }
 
   // Get current state

@@ -28,11 +28,11 @@ async function main() {
   const initialPayees = [IGNAS, NICK, MUSCADINE_LABS];
   const initialShares = [3, 3, 4]; // Total: 10 shares (5% of fees)
 
-  // Owners can be set via environment variable (comma-separated) or defaults to Nick's wallet
+  // Owners can be set via environment variable (comma-separated) or defaults to Nick and Ignas
   const OWNERS_ENV = process.env.OWNER_ADDRESSES || process.env.OWNER_ADDRESS;
   const initialOwners = OWNERS_ENV
     ? OWNERS_ENV.split(",").map((addr) => addr.trim())
-    : [NICK]; // Default to Nick's wallet
+    : [NICK, IGNAS]; // Default to Nick and Ignas
 
   console.log("\n=== Initial Configuration ===");
   console.log("Ignas:        ", IGNAS, "(3 shares, 1.5%)");

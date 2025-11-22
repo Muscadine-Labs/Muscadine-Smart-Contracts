@@ -2,27 +2,30 @@ import { ethers } from "hardhat";
 import { ERC20FeeSplitterV2 } from "../../../typechain-types";
 
 /**
- * Transfer ownership of ERC20FeeSplitterV2 (Owner Only)
+ * Add or remove owner from ERC20FeeSplitterV2 (Owner Only)
  *
  * Usage:
- *   CONTRACT_ADDRESS=0x... NEW_OWNER=0x... npx hardhat run contracts/ERC20FeeSplitter-V2/scripts/transferOwnership.ts --network base
+ *   CONTRACT_ADDRESS=0x... ACTION=add OWNER_ADDRESS=0x... npx hardhat run contracts/ERC20FeeSplitter-V2/scripts/transferOwnership.ts --network base
+ *   CONTRACT_ADDRESS=0x... ACTION=remove OWNER_ADDRESS=0x... npx hardhat run contracts/ERC20FeeSplitter-V2/scripts/transferOwnership.ts --network base
  */
 async function main() {
   const [signer] = await ethers.getSigners();
 
   const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
-  const NEW_OWNER = process.env.NEW_OWNER;
+  const ACTION = process.env.ACTION || "add"; // "add" or "remove"
+  const OWNER_ADDRESS = process.env.OWNER_ADDRESS || process.env.NEW_OWNER;
 
   if (!CONTRACT_ADDRESS) {
     throw new Error("Please set CONTRACT_ADDRESS in .env file or environment variable");
   }
-  if (!NEW_OWNER) {
-    throw new Error("Please set NEW_OWNER address in .env file or environment variable");
+  if (!OWNER_ADDRESS) {
+    throw new Error("Please set OWNER_ADDRESS in .env file or environment variable");
   }
 
-  console.log("Transferring ownership with account:", signer.address);
+  console.log("Managing owners with account:", signer.address);
   console.log("Contract address:", CONTRACT_ADDRESS);
-  console.log("New owner:", NEW_OWNER);
+  console.log("Action:", ACTION);
+  console.log("Owner address:", OWNER_ADDRESS);
 
   // Get contract instance
   const splitter = (await ethers.getContractAt(
@@ -31,47 +34,93 @@ async function main() {
   )) as ERC20FeeSplitterV2;
 
   // Verify caller is owner
-  const currentOwner = await splitter.owner();
-  if (signer.address.toLowerCase() !== currentOwner.toLowerCase()) {
+  const isOwner = await splitter.isOwner(signer.address);
+  if (!isOwner) {
+    const allOwners = await splitter.getAllOwners();
     throw new Error(
-      `Only owner can transfer ownership. Current owner: ${currentOwner}, Caller: ${signer.address}`,
+      `Only owners can manage owners. Current owners: ${allOwners.join(", ")}, Caller: ${signer.address}`,
     );
   }
 
-  // Check if new owner is different
-  if (currentOwner.toLowerCase() === NEW_OWNER.toLowerCase()) {
-    throw new Error("New owner address is the same as current owner");
-  }
+  // Get current owners
+  const allOwnersBefore = await splitter.getAllOwners();
+  const ownerCountBefore = await splitter.getOwnerCount();
 
-  console.log("\n=== Ownership Transfer ===");
-  console.log("Current owner:", currentOwner);
-  console.log("New owner:", NEW_OWNER);
+  console.log("\n=== Current State ===");
+  console.log("Current owners:", allOwnersBefore);
+  console.log("Owner count:", ownerCountBefore.toString());
 
-  // Transfer ownership
-  console.log("\nTransferring ownership...");
-  const tx = await splitter.transferOwnership(NEW_OWNER);
-  console.log("Transaction hash:", tx.hash);
+  if (ACTION === "add") {
+    // Check if already owner
+    const alreadyOwner = await splitter.isOwner(OWNER_ADDRESS);
+    if (alreadyOwner) {
+      throw new Error("Address is already an owner");
+    }
 
-  console.log("Waiting for confirmation...");
-  const receipt = await tx.wait();
-  console.log("✅ Transaction confirmed in block:", receipt?.blockNumber);
+    console.log("\n=== Adding Owner ===");
+    console.log("Adding:", OWNER_ADDRESS);
 
-  // Verify new owner
-  const newOwner = await splitter.owner();
-  console.log("\n=== Verification ===");
-  console.log("New owner:", newOwner);
+    const tx = await splitter.addOwner(OWNER_ADDRESS);
+    console.log("Transaction hash:", tx.hash);
 
-  if (newOwner.toLowerCase() === NEW_OWNER.toLowerCase()) {
-    console.log("✅ Ownership transfer successful!");
+    console.log("Waiting for confirmation...");
+    const receipt = await tx.wait();
+    console.log("✅ Transaction confirmed in block:", receipt?.blockNumber);
+
+    // Verify
+    const isNowOwner = await splitter.isOwner(OWNER_ADDRESS);
+    const allOwnersAfter = await splitter.getAllOwners();
+    console.log("\n=== Verification ===");
+    console.log("Is owner:", isNowOwner);
+    console.log("All owners:", allOwnersAfter);
+
+    if (isNowOwner) {
+      console.log("✅ Owner added successfully!");
+    } else {
+      console.log("⚠️  Warning: Owner was not added!");
+    }
+  } else if (ACTION === "remove") {
+    // Check if is owner
+    const isOwnerToRemove = await splitter.isOwner(OWNER_ADDRESS);
+    if (!isOwnerToRemove) {
+      throw new Error("Address is not an owner");
+    }
+
+    // Check if trying to remove self and is last owner
+    if (signer.address.toLowerCase() === OWNER_ADDRESS.toLowerCase() && ownerCountBefore === 1n) {
+      throw new Error("Cannot remove the last owner");
+    }
+
+    console.log("\n=== Removing Owner ===");
+    console.log("Removing:", OWNER_ADDRESS);
+
+    const tx = await splitter.removeOwner(OWNER_ADDRESS);
+    console.log("Transaction hash:", tx.hash);
+
+    console.log("Waiting for confirmation...");
+    const receipt = await tx.wait();
+    console.log("✅ Transaction confirmed in block:", receipt?.blockNumber);
+
+    // Verify
+    const isStillOwner = await splitter.isOwner(OWNER_ADDRESS);
+    const allOwnersAfter = await splitter.getAllOwners();
+    console.log("\n=== Verification ===");
+    console.log("Is still owner:", isStillOwner);
+    console.log("All owners:", allOwnersAfter);
+
+    if (!isStillOwner) {
+      console.log("✅ Owner removed successfully!");
+    } else {
+      console.log("⚠️  Warning: Owner was not removed!");
+    }
   } else {
-    console.log("⚠️  Warning: Owner address mismatch!");
+    throw new Error(`Invalid ACTION. Must be "add" or "remove", got: ${ACTION}`);
   }
 
-  console.log("\n⚠️  IMPORTANT: The new owner now has full control:");
-  console.log("  - Can upgrade the contract");
+  console.log("\n⚠️  IMPORTANT: Owners have full control:");
   console.log("  - Can add/remove/update payees");
-  console.log("  - Can transfer ownership again");
-  console.log("  - For production, use a MULTI-SIG WALLET as owner");
+  console.log("  - Can add/remove other owners");
+  console.log("  - For production, use multiple owners for better security");
 }
 
 // Only execute if run directly (not during tests)

@@ -54,7 +54,9 @@ After verification:
 - Get payee count: `getPayeeCount()`
 - Get payee info: `getPayeeInfo(payeeAddress)`
 - Get all payees: `getAllPayees()`
-- Check owner: `owner()`
+- Check if owner: `isOwner(address)`
+- Get owner count: `getOwnerCount()`
+- Get all owners: `getAllOwners()`
 - Check total shares: `totalShares()`
 
 ### Write Functions (Requires Gas)
@@ -63,7 +65,8 @@ After verification:
 - Add payee (owner only): `addPayee(payeeAddress, shares)`
 - Remove payee (owner only): `removePayee(payeeAddress)`
 - Update shares (owner only): `updatePayeeShares(payeeAddress, newShares)`
-- Transfer ownership (owner only): `transferOwnership(newOwner)`
+- Add owner (owner only): `addOwner(newOwnerAddress)`
+- Remove owner (owner only): `removeOwner(ownerToRemove)`
 
 ## Troubleshooting
 
