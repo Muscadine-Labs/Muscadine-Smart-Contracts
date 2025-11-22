@@ -12,7 +12,7 @@
     "rootDir": "./",
     "typeRoots": ["./node_modules/@types"]
   },
-  "include": ["./scripts", "./test", "./typechain-types"],
+  "include": ["./scripts", "./test", "./typechain-types", "./contracts/**/scripts", "./contracts/**/test"],
   "files": ["./hardhat.config.ts"]
 }
 

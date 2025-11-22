@@ -18,6 +18,11 @@ const config: HardhatUserConfig = {
     tests: "./contracts",
     sources: "./contracts",
   },
+  mocha: {
+    timeout: 40000,
+    // Exclude scripts from test runs
+    grep: process.env.TEST_GREP || undefined,
+  },
   networks: {
     hardhat: {
       chainId: 31337,

@@ -22,10 +22,23 @@ contracts/
       VaultTokens.test.ts
     scripts/                      # Deployment scripts
       deployImmutable.ts
-  ERC20FeeSplitter-V2/            # Future contract versions (ready for new contracts)
-    mocks/
-    test/
-    scripts/
+  ERC20FeeSplitter-V2/            # Upgradeable fee splitter with dynamic payees
+    ERC20FeeSplitterV2.sol        # Main contract
+    mocks/                         # Contract-specific mocks
+      ERC20Mock.sol
+      DeflationaryMock.sol
+    test/                          # Test files
+      ERC20FeeSplitterV2.test.ts
+      V2Advanced.test.ts
+      V2VaultTokens.test.ts
+      V2DeflationaryTokens.test.ts
+    scripts/                       # Deployment scripts
+      deployV2.ts
+      upgradeV2.ts
+    README.md                      # Contract documentation
+    UPGRADE_GUIDE.md               # Upgrade instructions
+    OWNERSHIP.md                   # Ownership setup guide
+    TEST_COVERAGE.md               # Test coverage details
   mocks/                          # Shared mocks (used by multiple contracts)
     MockERC4626Vault.sol
 
@@ -49,9 +62,9 @@ This organization makes it easy to:
 
 ## Contracts
 
-### ERC20FeeSplitter
+### ERC20FeeSplitter (V1)
 
-Ultra-minimal fee splitter smart contract for ERC20 tokens only.
+Ultra-minimal, fully immutable fee splitter smart contract for ERC20 tokens.
 
 **Features:**
 - **Fully immutable** - NO owner, NO configuration changes, EVER
@@ -59,6 +72,27 @@ Ultra-minimal fee splitter smart contract for ERC20 tokens only.
 - **ERC20 tokens only** - Supports any ERC20 including vault shares
 - **Reentrancy protected** - Safe from attacks
 - **Gas optimized** - Minimal functions, efficient code
+
+**Documentation:** See [contracts/ERC20FeeSplitter/README.md](./contracts/ERC20FeeSplitter/README.md)
+
+### ERC20FeeSplitterV2 (V2)
+
+Upgradeable fee splitter with dynamic payee management and owner controls.
+
+**Features:**
+- **Upgradeable** - UUPS proxy pattern, upgradeable by owner
+- **Dynamic Payees** - Add, remove, and update payees and shares
+- **Multiple Payees** - Supports 3+ payees (currently: Ignas, Nick, Muscadine Labs)
+- **Owner Controls** - Owner can manage payees and upgrade contract
+- **All V1 Features** - Deflationary tokens, vault tokens, reentrancy protection
+
+**Initial Configuration:**
+- Ignas: 3 shares (1.5%)
+- Nick: 3 shares (1.5%)
+- Muscadine Labs: 4 shares (2.0%)
+- Total: 10 shares (5% of fees)
+
+**Documentation:** See [contracts/ERC20FeeSplitter-V2/README.md](./contracts/ERC20FeeSplitter-V2/README.md)
 
 ## Configuration
 
@@ -109,16 +143,27 @@ uint256 pending = splitter.pendingToken(tokenAddress, payeeAddress);
 # Install dependencies
 npm install
 
-# Create .env file
-echo "PRIVATE_KEY=your_private_key_here" > .env
-echo "BASESCAN_API_KEY=your_api_key_here" >> .env
+# Create .env file from example
+cp .env.example .env
+
+# Edit .env and add your actual values:
+# - PRIVATE_KEY: Your deployment wallet private key
+# - BASESCAN_API_KEY: Your Basescan API key
+# - OWNER_ADDRESS: (Optional) For V2, defaults to Nick's wallet
 ```
 
-### Deploy to Base Mainnet
+### Deploy V1 (Immutable) to Base Mainnet
 ```bash
 npm run deploy:base
 # or
 npx hardhat run contracts/ERC20FeeSplitter/scripts/deployImmutable.ts --network base
+```
+
+### Deploy V2 (Upgradeable) to Base Mainnet
+```bash
+npm run deploy:v2:base
+# or
+npx hardhat run contracts/ERC20FeeSplitter-V2/scripts/deployV2.ts --network base
 ```
 
 **Note:** The deployment script is located in each contract's `scripts/` folder. For ERC20FeeSplitter, use `contracts/ERC20FeeSplitter/scripts/deployImmutable.ts`.
@@ -166,12 +211,15 @@ npx hardhat test contracts/ERC20FeeSplitter/test/
 - Coverage reports are generated to `coverage/` directory
 - All test files are located in `contracts/<ContractName>/test/` directories
 
-**Test Coverage:** 34 tests covering all functionality including:
-- 50/50 token splitting
+**Test Coverage:**
+- **V1:** 31+ tests covering immutable contract functionality
+- **V2:** 33 tests covering upgradeable contract + all V1 functionality
 - Deflationary tokens (fee-on-transfer)
+- Vault tokens (USDC, cbBTC, WETH with different decimals)
 - Rebasing tokens
 - Reentrancy protection
 - Edge cases and precision
+- Dynamic payee management (V2 only)
 
 ## Development
 
@@ -207,18 +255,32 @@ The repository is configured to automatically find and compile all contracts in 
 
 ## Security
 
+### ERC20FeeSplitter (V1)
 - **Immutable** - Configuration cannot be changed after deployment
 - **No owner** - No admin functions or privileged access
 - **Minimal code** - 111 lines, easy to audit
 - **OpenZeppelin** - Uses industry-standard secure libraries
 - **Reentrancy protection** - Uses OpenZeppelin's ReentrancyGuard
 
-## Important
-
-⚠️ **This contract is FULLY IMMUTABLE:**
+⚠️ **V1 is FULLY IMMUTABLE:**
 - Configuration is PERMANENT
 - Cannot change payees or shares
 - If you need changes, deploy a new contract
+
+### ERC20FeeSplitterV2 (V2)
+- **Upgradeable** - Owner can upgrade implementation (use multi-sig!)
+- **Owner Controls** - Owner can manage payees and upgrade
+- **Access Control** - Owner-only functions for management
+- **UUPS Pattern** - Secure upgradeability pattern
+- **All V1 Security** - Reentrancy protection, OpenZeppelin libraries
+
+⚠️ **V2 is UPGRADEABLE:**
+- Owner has significant privileges
+- **Use multi-sig wallet as owner in production**
+- Can upgrade contract, add/remove payees, update shares
+- See [SECURITY.md](./SECURITY.md) for detailed security practices
+
+See [SECURITY.md](./SECURITY.md) for comprehensive security information.
 
 ## License
 
