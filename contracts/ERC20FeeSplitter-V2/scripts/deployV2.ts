@@ -1,4 +1,4 @@
-import { ethers, upgrades } from "hardhat";
+import { ethers, upgrades, run } from "hardhat";
 
 /**
  * Deploy ERC20FeeSplitterV2 - Upgradeable fee splitter with dynamic payee management
@@ -90,18 +90,86 @@ async function main() {
   console.log("2. Call upgrade() from owner account");
   console.log("3. Proxy address remains the same");
 
-  console.log("\n=== Next Steps ===");
-  console.log("1. Verify proxy contract on Basescan:");
-  console.log(`   npx hardhat verify --network base ${proxyAddress}`);
-  console.log("");
-  console.log("2. Verify implementation contract:");
-  console.log(`   npx hardhat verify --network base ${implementationAddress}`);
-  console.log("");
-  console.log("3. Update Muscadine Labs address if needed:");
+  // Automatic verification (if BASESCAN_API_KEY is set)
+  const basescanApiKey = process.env.BASESCAN_API_KEY;
+  const network = await ethers.provider.getNetwork();
+  const isBaseNetwork = network.chainId === 8453n || network.name === "base";
+
+  if (basescanApiKey && isBaseNetwork) {
+    console.log("\n=== Verifying Contracts on Basescan ===");
+    
+    try {
+      // Wait a bit for Basescan to index the contract
+      console.log("Waiting for Basescan to index contracts...");
+      await new Promise(resolve => setTimeout(resolve, 10000)); // 10 seconds
+
+      // Verify implementation contract
+      console.log("Verifying implementation contract...");
+      try {
+        await run("verify:verify", {
+          address: implementationAddress,
+          constructorArguments: [],
+        });
+        console.log("✅ Implementation contract verified!");
+      } catch (error: any) {
+        if (error.message?.includes("Already Verified")) {
+          console.log("✅ Implementation contract already verified");
+        } else {
+          console.log("⚠️  Implementation verification failed:", error.message);
+          console.log(`   Manual verification: npx hardhat verify --network base ${implementationAddress}`);
+        }
+      }
+
+      // Wait a bit more
+      await new Promise(resolve => setTimeout(resolve, 5000)); // 5 seconds
+
+      // Verify proxy contract
+      console.log("Verifying proxy contract...");
+      try {
+        await run("verify:verify", {
+          address: proxyAddress,
+          constructorArguments: [],
+        });
+        console.log("✅ Proxy contract verified!");
+      } catch (error: any) {
+        if (error.message?.includes("Already Verified")) {
+          console.log("✅ Proxy contract already verified");
+        } else {
+          console.log("⚠️  Proxy verification failed:", error.message);
+          console.log(`   Manual verification: npx hardhat verify --network base ${proxyAddress}`);
+        }
+      }
+
+      console.log("\n✅ Verification complete!");
+      console.log(`View on Basescan: https://basescan.org/address/${proxyAddress}`);
+    } catch (error: any) {
+      console.log("\n⚠️  Automatic verification encountered an error");
+      console.log("You can verify manually:");
+      console.log(`   npx hardhat verify --network base ${implementationAddress}`);
+      console.log(`   npx hardhat verify --network base ${proxyAddress}`);
+    }
+  } else {
+    console.log("\n=== Next Steps ===");
+    if (!basescanApiKey) {
+      console.log("⚠️  BASESCAN_API_KEY not set - skipping automatic verification");
+    }
+    if (!isBaseNetwork) {
+      console.log("⚠️  Not on Base network - skipping automatic verification");
+    }
+    console.log("1. Verify proxy contract on Basescan:");
+    console.log(`   npx hardhat verify --network base ${proxyAddress}`);
+    console.log("");
+    console.log("2. Verify implementation contract:");
+    console.log(`   npx hardhat verify --network base ${implementationAddress}`);
+    console.log("");
+  }
+
+  console.log("\n=== Additional Steps ===");
+  console.log("1. Update Muscadine Labs address if needed:");
   console.log(`   splitter.updatePayeeShares(${MUSCADINE_LABS}, 4)`);
   console.log("");
-  console.log("4. Set as fee recipient in your Morpho vaults");
-  console.log("5. Start receiving and splitting fees!");
+  console.log("2. Set as fee recipient in your Morpho vaults");
+  console.log("3. Start receiving and splitting fees!");
 
   // Save deployment info
   const deploymentInfo = {
