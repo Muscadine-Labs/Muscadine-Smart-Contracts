@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { ERC20FeeSplitter, ERC20Mock } from "../typechain-types";
+import { ERC20FeeSplitter, ERC20Mock } from "../../../typechain-types";
 import { HardhatEthersSigner } from "@nomicfoundation/hardhat-ethers/signers";
 
 describe("ERC20FeeSplitter - Advanced Test Cases", function () {

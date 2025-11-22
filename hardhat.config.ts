@@ -14,7 +14,7 @@ const config: HardhatUserConfig = {
     },
   },
   paths: {
-    tests: "./test",
+    tests: "./contracts",
     sources: "./contracts",
   },
   networks: {
