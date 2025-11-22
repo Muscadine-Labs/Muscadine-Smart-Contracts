@@ -172,17 +172,27 @@ Or manually:
 npx hardhat run contracts/ERC20FeeSplitter-V2/scripts/deployV2.ts --network base
 ```
 
-### Verify Contracts
+### Verify Contracts on Basescan
 
-After deployment, verify both the proxy and implementation:
+**Important:** After deployment, the contract will appear on Basescan, but you need to verify it to use the "Read Contract" and "Write Contract" tabs.
+
+You need to verify **both** the proxy and implementation contracts:
 
 ```bash
-# Verify proxy
-npx hardhat verify --network base <PROXY_ADDRESS>
-
-# Verify implementation
+# 1. Verify the implementation contract first
 npx hardhat verify --network base <IMPLEMENTATION_ADDRESS>
+
+# 2. Verify the proxy contract (this enables Read/Write Contract tabs)
+npx hardhat verify --network base <PROXY_ADDRESS>
 ```
+
+**After verification:**
+- ✅ You'll see the contract source code on Basescan
+- ✅ "Read Contract" tab will appear with all view functions
+- ✅ "Write Contract" tab will appear with all write functions
+- ✅ You can interact with the contract directly from Basescan
+
+**Note:** The proxy address is what users interact with. After verification, you can call all functions from Basescan using the proxy address.
 
 ## Upgrading
 

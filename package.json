@@ -5,6 +5,7 @@
   "scripts": {
     "build": "hardhat compile",
     "test": "hardhat test",
+    "coverage": "hardhat coverage",
     "test:coverage": "hardhat coverage",
     "deploy": "hardhat run contracts/ERC20FeeSplitter/scripts/deployImmutable.ts",
     "deploy:base": "hardhat run contracts/ERC20FeeSplitter/scripts/deployImmutable.ts --network base",
