@@ -88,6 +88,16 @@ Fee splitter with dynamic payee management and owner controls.
 
 **Documentation:** See [contracts/ERC20FeeSplitter-V2/README.md](./contracts/ERC20FeeSplitter-V2/README.md)
 
+## Deployed Contracts (Base Mainnet)
+
+### ERC20FeeSplitter (V1)
+**Address:** `0x194DeC45D34040488f355823e1F94C0434304188`  
+**Basescan:** https://basescan.org/address/0x194DeC45D34040488f355823e1F94C0434304188
+
+### ERC20FeeSplitterV2 (V2)
+**Address:** `0x3690Eb8735fE51c695d2f2Da289D1FA447137E24`  
+**Basescan:** https://basescan.org/address/0x3690Eb8735fE51c695d2f2Da289D1FA447137E24
+
 ## Configuration
 
 **Payees:**

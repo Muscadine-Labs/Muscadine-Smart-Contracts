@@ -4,7 +4,7 @@ Fee splitter smart contract with dynamic payee management and owner controls.
 
 ## Overview
 
-ERC20FeeSplitterV2 is a fee splitter that supports multiple payees and dynamic payee management. The owner can add, remove, and update payees and their shares. The contract uses a proxy pattern for deployment but **upgrades are disabled** - the contract cannot be upgraded after deployment.
+ERC20FeeSplitterV2 is a fee splitter that supports multiple payees and dynamic payee management. Owners can add, remove, and update payees and their shares. The contract is deployed directly (non-upgradeable) and supports multiple owners for access control.
 
 **✅ Ready for Deployment:**
 - All 33 tests passing
@@ -28,7 +28,12 @@ ERC20FeeSplitterV2 is a fee splitter that supports multiple payees and dynamic p
 **Contract:** `ERC20FeeSplitterV2.sol`  
 **License:** MIT  
 **Solidity Version:** 0.8.24  
-**Deployment Pattern:** Proxy (UUPS pattern, but upgrades disabled)
+**Deployment Pattern:** Direct deployment (non-upgradeable)
+
+### Deployed Contract
+
+**Base Mainnet:** `0x3690Eb8735fE51c695d2f2Da289D1FA447137E24`  
+**Basescan:** https://basescan.org/address/0x3690Eb8735fE51c695d2f2Da289D1FA447137E24
 
 ### Initial Configuration
 
@@ -36,7 +41,7 @@ ERC20FeeSplitterV2 is a fee splitter that supports multiple payees and dynamic p
 - **Payee 2 (Nick):** `0xf35B121bA32cBeaA27716abEfFb6B65a55f9B333` (3 shares, 1.5%)
 - **Payee 3 (Muscadine Labs):** `0x057fd8B961Eb664baA647a5C7A6e9728fabA266A` (4 shares, 2.0%)
 - **Total Shares:** 10 (5% of total fees)
-- **Owner:** Nick's wallet (default) or set via `OWNER_ADDRESS` env var
+- **Owners:** Nick (`0xf35B121bA32cBeaA27716abEfFb6B65a55f9B333`) + Ignas (`0x0D5A708B651FeE1DAA0470431c4262ab3e1D0261`)
 
 ## Complete Function Reference
 

@@ -22,6 +22,11 @@ ERC20FeeSplitter is a production-ready, fully immutable fee splitter contract de
 **License:** MIT  
 **Solidity Version:** 0.8.24
 
+### Deployed Contract
+
+**Base Mainnet:** `0x194DeC45D34040488f355823e1F94C0434304188`  
+**Basescan:** https://basescan.org/address/0x194DeC45D34040488f355823e1F94C0434304188
+
 ### Configuration
 
 - **Payee 1 (Nick):** `0xf35B121bA32cBeaA27716abEfFb6B65a55f9B333` (1 share)
