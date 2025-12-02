@@ -27,7 +27,10 @@ describe("ERC20FeeSplitterV2 - Advanced Test Cases", function () {
     const TokenFactory = await ethers.getContractFactory(
       "contracts/ERC20FeeSplitter-V2/mocks/ERC20Mock.sol:ERC20Mock",
     );
-    token = await TokenFactory.deploy("Test Token", "TEST", 18);
+    token = (await TokenFactory.deploy("Test Token", "TEST", 18)) as ERC20Mock;
+    await token.waitForDeployment();
+
+    await splitter.addClaimableToken(await token.getAddress());
   });
 
   describe("Multiple Deposits Across Time", function () {
@@ -64,7 +67,7 @@ describe("ERC20FeeSplitterV2 - Advanced Test Cases", function () {
       await token.transfer(await splitter.getAddress(), amount2);
 
       // Claim all
-      await splitter.claimAll(token);
+      await splitter.claimAll();
 
       // All payees should have received their shares
       expect(await token.balanceOf(await payee1.getAddress())).to.be.gte(ethers.parseEther("300"));
@@ -112,7 +115,7 @@ describe("ERC20FeeSplitterV2 - Advanced Test Cases", function () {
     });
 
     it("should quietly no-op claimAll when nothing due", async function () {
-      const tx = await splitter.claimAll(token);
+      const tx = await splitter.claimAll();
       const receipt = await tx.wait();
       // Should succeed but do nothing
       expect(receipt).to.not.be.null;
@@ -145,7 +148,7 @@ describe("ERC20FeeSplitterV2 - Advanced Test Cases", function () {
       await token.mint(owner.address, amount);
       await token.transfer(await splitter.getAddress(), amount);
 
-      await splitter.claimAll(token);
+      await splitter.claimAll();
 
       // Total claimed should equal amount (within rounding)
       const totalClaimed =
@@ -161,7 +164,7 @@ describe("ERC20FeeSplitterV2 - Advanced Test Cases", function () {
       await token.transfer(await splitter.getAddress(), amount);
 
       // Should handle without errors
-      await expect(splitter.claimAll(token)).to.not.be.reverted;
+      await expect(splitter.claimAll()).to.not.be.reverted;
     });
   });
 });

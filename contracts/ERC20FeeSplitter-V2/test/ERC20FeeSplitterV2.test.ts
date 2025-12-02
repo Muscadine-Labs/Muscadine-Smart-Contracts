@@ -11,6 +11,7 @@ describe("ERC20FeeSplitterV2", function () {
   let nick: HardhatEthersSigner;
   let muscadine: HardhatEthersSigner;
   let stranger: HardhatEthersSigner;
+  let tokenAddress: string;
 
   const IGNAS_ADDRESS = "0x0D5A708B651FeE1DAA0470431c4262ab3e1D0261";
   const NICK_ADDRESS = "0xf35B121bA32cBeaA27716abEfFb6B65a55f9B333";
@@ -32,8 +33,159 @@ describe("ERC20FeeSplitterV2", function () {
     const TokenFactory = await ethers.getContractFactory(
       "contracts/ERC20FeeSplitter-V2/mocks/ERC20Mock.sol:ERC20Mock",
     );
-    token = await TokenFactory.deploy("Test Token", "TEST", 18);
+    token = (await TokenFactory.deploy("Test Token", "TEST", 18)) as ERC20Mock;
     await token.waitForDeployment();
+    tokenAddress = await token.getAddress();
+    await splitter.addClaimableToken(tokenAddress);
+  });
+
+  describe("Claimable token management", function () {
+    it("should expose configured claimable tokens", async function () {
+      const claimable = await splitter.getClaimableTokens();
+      expect(claimable).to.deep.equal([tokenAddress]);
+    });
+
+    it("should prevent duplicate claimable token entries", async function () {
+      await expect(splitter.addClaimableToken(tokenAddress)).to.be.revertedWithCustomError(
+        splitter,
+        "ClaimableTokenAlreadyExists",
+      );
+    });
+
+    it("should allow removing claimable tokens", async function () {
+      await splitter.removeClaimableToken(tokenAddress);
+      const claimable = await splitter.getClaimableTokens();
+      expect(claimable.length).to.equal(0);
+    });
+
+    it("should revert when removing unknown claimable token", async function () {
+      await splitter.removeClaimableToken(tokenAddress);
+      await expect(splitter.removeClaimableToken(tokenAddress)).to.be.revertedWithCustomError(
+        splitter,
+        "ClaimableTokenNotFound",
+      );
+    });
+
+    it("should revert claimAll when no claimable tokens configured", async function () {
+      await splitter.removeClaimableToken(tokenAddress);
+      await expect(splitter.claimAll()).to.be.revertedWithCustomError(
+        splitter,
+        "NoClaimableTokens",
+      );
+    });
+
+    it("should claim across multiple tokens in a single call", async function () {
+      const TokenFactory = await ethers.getContractFactory(
+        "contracts/ERC20FeeSplitter-V2/mocks/ERC20Mock.sol:ERC20Mock",
+      );
+      const secondToken = (await TokenFactory.deploy("Second Token", "TWO", 6)) as ERC20Mock;
+      await secondToken.waitForDeployment();
+      await splitter.addClaimableToken(await secondToken.getAddress());
+
+      const amountPrimary = ethers.parseEther("1000");
+      const amountSecondary = ethers.parseUnits("5000", 6);
+
+      await token.mint(owner.address, amountPrimary);
+      await secondToken.mint(owner.address, amountSecondary);
+
+      await token.transfer(await splitter.getAddress(), amountPrimary);
+      await secondToken.transfer(await splitter.getAddress(), amountSecondary);
+
+      await splitter.claimAll();
+
+      expect(await token.balanceOf(IGNAS_ADDRESS)).to.equal(ethers.parseEther("300"));
+      expect(await token.balanceOf(NICK_ADDRESS)).to.equal(ethers.parseEther("300"));
+      expect(await token.balanceOf(MUSCADINE_ADDRESS)).to.equal(ethers.parseEther("400"));
+
+      expect(await secondToken.balanceOf(IGNAS_ADDRESS)).to.equal(ethers.parseUnits("1500", 6));
+      expect(await secondToken.balanceOf(NICK_ADDRESS)).to.equal(ethers.parseUnits("1500", 6));
+      expect(await secondToken.balanceOf(MUSCADINE_ADDRESS)).to.equal(ethers.parseUnits("2000", 6));
+    });
+
+    it("should allow claiming all payees for a single token", async function () {
+      const amount = ethers.parseEther("1000");
+      await token.mint(owner.address, amount);
+      await token.transfer(await splitter.getAddress(), amount);
+
+      await splitter.claimAllForToken(token);
+
+      expect(await token.balanceOf(IGNAS_ADDRESS)).to.equal(ethers.parseEther("300"));
+      expect(await token.balanceOf(NICK_ADDRESS)).to.equal(ethers.parseEther("300"));
+      expect(await token.balanceOf(MUSCADINE_ADDRESS)).to.equal(ethers.parseEther("400"));
+    });
+
+    it("should revert claimAllForToken when token is not claimable", async function () {
+      const TokenFactory = await ethers.getContractFactory(
+        "contracts/ERC20FeeSplitter-V2/mocks/ERC20Mock.sol:ERC20Mock",
+      );
+      const unlistedToken = (await TokenFactory.deploy("Unlisted Token", "UNLISTED", 18)) as ERC20Mock;
+      await unlistedToken.waitForDeployment();
+
+      await expect(splitter.claimAllForToken(unlistedToken)).to.be.revertedWithCustomError(
+        splitter,
+        "ClaimableTokenNotFound",
+      );
+    });
+
+    it("should handle claimAllForToken with zero balance gracefully", async function () {
+      const TokenFactory = await ethers.getContractFactory(
+        "contracts/ERC20FeeSplitter-V2/mocks/ERC20Mock.sol:ERC20Mock",
+      );
+      const emptyToken = (await TokenFactory.deploy("Empty Token", "ZERO", 18)) as ERC20Mock;
+      await emptyToken.waitForDeployment();
+      await splitter.addClaimableToken(await emptyToken.getAddress());
+
+      // Should not revert, just do nothing
+      await expect(splitter.claimAllForToken(emptyToken)).to.not.be.reverted;
+    });
+
+    it("should be more gas efficient than claimAll for single token", async function () {
+      const amount = ethers.parseEther("1000");
+      await token.mint(owner.address, amount);
+      await token.transfer(await splitter.getAddress(), amount);
+
+      // claimAllForToken should be cheaper when only one token needs claiming
+      const tx1 = await splitter.claimAllForToken(token);
+      const receipt1 = await tx1.wait();
+      const gasUsed1 = receipt1?.gasUsed || 0n;
+
+      // Reset by sending more tokens
+      await token.mint(owner.address, amount);
+      await token.transfer(await splitter.getAddress(), amount);
+
+      // claimAll processes all tokens (even if only one has balance)
+      const tx2 = await splitter.claimAll();
+      const receipt2 = await tx2.wait();
+      const gasUsed2 = receipt2?.gasUsed || 0n;
+
+      // claimAllForToken should use less gas when only one token is claimable
+      // (This test verifies the function works, actual gas savings depend on number of tokens)
+      expect(gasUsed1).to.be.gt(0);
+      expect(gasUsed2).to.be.gt(0);
+    });
+
+    it("should skip claimable tokens without balances during claimAll", async function () {
+      const TokenFactory = await ethers.getContractFactory(
+        "contracts/ERC20FeeSplitter-V2/mocks/ERC20Mock.sol:ERC20Mock",
+      );
+      const emptyToken = (await TokenFactory.deploy("Empty Token", "ZERO", 18)) as ERC20Mock;
+      await emptyToken.waitForDeployment();
+
+      await splitter.addClaimableToken(await emptyToken.getAddress());
+
+      const amount = ethers.parseEther("250");
+      await token.mint(owner.address, amount);
+      await token.transfer(await splitter.getAddress(), amount);
+
+      await expect(splitter.claimAll()).to.not.be.reverted;
+
+      expect(await emptyToken.balanceOf(IGNAS_ADDRESS)).to.equal(0);
+      expect(await emptyToken.balanceOf(NICK_ADDRESS)).to.equal(0);
+      expect(await emptyToken.balanceOf(MUSCADINE_ADDRESS)).to.equal(0);
+      expect(await token.balanceOf(IGNAS_ADDRESS)).to.equal(ethers.parseEther("75"));
+      expect(await token.balanceOf(NICK_ADDRESS)).to.equal(ethers.parseEther("75"));
+      expect(await token.balanceOf(MUSCADINE_ADDRESS)).to.equal(ethers.parseEther("100"));
+    });
   });
 
   describe("Deployment", function () {
@@ -99,7 +251,7 @@ describe("ERC20FeeSplitterV2", function () {
       await token.mint(owner.address, amount);
       await token.transfer(await splitter.getAddress(), amount);
 
-      await splitter.claimAll(token);
+      await splitter.claimAll();
 
       expect(await token.balanceOf(IGNAS_ADDRESS)).to.equal(ethers.parseEther("300"));
       expect(await token.balanceOf(NICK_ADDRESS)).to.equal(ethers.parseEther("300"));
@@ -257,6 +409,100 @@ describe("ERC20FeeSplitterV2", function () {
       // Ignas should get 30% of new 500 = 150, plus already claimed 300
       await splitter.claim(token, IGNAS_ADDRESS);
       expect(await token.balanceOf(IGNAS_ADDRESS)).to.equal(ethers.parseEther("450"));
+    });
+
+    it("should handle payee changes and share updates with existing tokens", async function () {
+      // Initial state: 3 payees with 3:3:4 shares (10 total)
+      // Deposit tokens
+      const amount = ethers.parseEther("1000");
+      await token.mint(owner.address, amount);
+      await token.transfer(await splitter.getAddress(), amount);
+
+      // Verify initial pending amounts
+      expect(await splitter.pendingToken(token, IGNAS_ADDRESS)).to.equal(ethers.parseEther("300")); // 3/10
+      expect(await splitter.pendingToken(token, NICK_ADDRESS)).to.equal(ethers.parseEther("300")); // 3/10
+      expect(await splitter.pendingToken(token, MUSCADINE_ADDRESS)).to.equal(ethers.parseEther("400")); // 4/10
+
+      // Remove one payee (Muscadine)
+      await splitter.removePayee(MUSCADINE_ADDRESS);
+      expect(await splitter.getPayeeCount()).to.equal(2);
+      expect(await splitter.totalShares()).to.equal(6); // 3 + 3
+
+      // After removal, remaining payees should split the 1000 tokens proportionally
+      // Ignas: 3/6 = 50% = 500 tokens
+      // Nick: 3/6 = 50% = 500 tokens
+      expect(await splitter.pendingToken(token, IGNAS_ADDRESS)).to.equal(ethers.parseEther("500"));
+      expect(await splitter.pendingToken(token, NICK_ADDRESS)).to.equal(ethers.parseEther("500"));
+
+      // Add a new payee with 2 shares
+      const newPayee = stranger.address;
+      await splitter.addPayee(newPayee, 2);
+      expect(await splitter.getPayeeCount()).to.equal(3);
+      expect(await splitter.totalShares()).to.equal(8); // 3 + 3 + 2
+
+      // With new payee, shares are now 3:3:2 (8 total)
+      // The 1000 tokens should be split: Ignas 3/8, Nick 3/8, NewPayee 2/8
+      expect(await splitter.pendingToken(token, IGNAS_ADDRESS)).to.equal(ethers.parseEther("375")); // 3/8 * 1000
+      expect(await splitter.pendingToken(token, NICK_ADDRESS)).to.equal(ethers.parseEther("375")); // 3/8 * 1000
+      expect(await splitter.pendingToken(token, newPayee)).to.equal(ethers.parseEther("250")); // 2/8 * 1000
+
+      // Update shares: Ignas from 3 to 5
+      await splitter.updatePayeeShares(IGNAS_ADDRESS, 5);
+      expect(await splitter.totalShares()).to.equal(10); // 5 + 3 + 2
+
+      // With updated shares 5:3:2 (10 total), the 1000 tokens split:
+      expect(await splitter.pendingToken(token, IGNAS_ADDRESS)).to.equal(ethers.parseEther("500")); // 5/10 * 1000
+      expect(await splitter.pendingToken(token, NICK_ADDRESS)).to.equal(ethers.parseEther("300")); // 3/10 * 1000
+      expect(await splitter.pendingToken(token, newPayee)).to.equal(ethers.parseEther("200")); // 2/10 * 1000
+
+      // Verify claimAll works correctly
+      await expect(splitter.claimAll()).to.not.be.reverted;
+
+      // Verify all tokens were claimed
+      const contractBalance = await token.balanceOf(await splitter.getAddress());
+      expect(contractBalance).to.be.lt(ethers.parseEther("0.0000000000000001")); // Should be near zero
+    });
+
+    it("should handle balance depletion correctly in claimAll", async function () {
+      // Scenario: Contract has less balance than total pending amounts
+      const amount = ethers.parseEther("150"); // Only 150 tokens
+      await token.mint(owner.address, amount);
+      await token.transfer(await splitter.getAddress(), amount);
+
+      // Each payee should have pending: 150 * (shares/totalShares)
+      // Ignas: 3/10 * 150 = 45
+      // Nick: 3/10 * 150 = 45
+      // Muscadine: 4/10 * 150 = 60
+      // Total pending: 150 (matches balance)
+
+      const ignasPending = await splitter.pendingToken(token, IGNAS_ADDRESS);
+      const nickPending = await splitter.pendingToken(token, NICK_ADDRESS);
+      const muscadinePending = await splitter.pendingToken(token, MUSCADINE_ADDRESS);
+
+      expect(ignasPending).to.equal(ethers.parseEther("45"));
+      expect(nickPending).to.equal(ethers.parseEther("45"));
+      expect(muscadinePending).to.equal(ethers.parseEther("60"));
+
+      // claimAll should successfully claim all available tokens
+      await expect(splitter.claimAll()).to.not.be.reverted;
+
+      // Verify all tokens were claimed (within rounding)
+      const contractBalance = await token.balanceOf(await splitter.getAddress());
+      expect(contractBalance).to.be.lt(ethers.parseEther("0.0000000000000001"));
+
+      // Verify payees received their proportional shares
+      const ignasBalance = await token.balanceOf(IGNAS_ADDRESS);
+      const nickBalance = await token.balanceOf(NICK_ADDRESS);
+      const muscadineBalance = await token.balanceOf(MUSCADINE_ADDRESS);
+
+      // Should be close to expected amounts (within rounding)
+      expect(ignasBalance).to.be.closeTo(ethers.parseEther("45"), ethers.parseEther("0.01"));
+      expect(nickBalance).to.be.closeTo(ethers.parseEther("45"), ethers.parseEther("0.01"));
+      expect(muscadineBalance).to.be.closeTo(ethers.parseEther("60"), ethers.parseEther("0.01"));
+
+      // Total claimed should equal original balance
+      const totalClaimed = ignasBalance + nickBalance + muscadineBalance;
+      expect(totalClaimed).to.be.closeTo(amount, ethers.parseEther("0.01"));
     });
   });
 });

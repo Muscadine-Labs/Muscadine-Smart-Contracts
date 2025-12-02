@@ -29,6 +29,8 @@ describe("ERC20FeeSplitterV2 - Deflationary Token Support", function () {
     );
     deflToken = await DeflFactory.deploy("Deflationary", "DEFL", 18);
     await deflToken.waitForDeployment();
+
+    await splitter.addClaimableToken(await deflToken.getAddress());
   });
 
   it("should handle deflationary tokens correctly with actual-sent accounting", async function () {
@@ -46,7 +48,7 @@ describe("ERC20FeeSplitterV2 - Deflationary Token Support", function () {
     const payee2BalanceBefore = await deflToken.balanceOf(await payee2.getAddress());
     const payee3BalanceBefore = await deflToken.balanceOf(await payee3.getAddress());
 
-    await splitter.claimAll(deflToken);
+    await splitter.claimAll();
 
     // Check balances (accounting for deflationary nature - another 1% burn on each claim transfer)
     const balance1 = await deflToken.balanceOf(await payee1.getAddress());

@@ -53,6 +53,7 @@ ERC20FeeSplitterV2 is a fee splitter that supports multiple payees and dynamic p
 | `getPayeeCount()` | `uint256` | Get total number of payees |
 | `getPayeeInfo(address payee)` | `(uint256 shares, bool exists)` | Get payee shares and existence status |
 | `getAllPayees()` | `address[]` | Get array of all payee addresses |
+| `getClaimableTokens()` | `IERC20[]` | List of tokens processed during `claimAll()` |
 | `payees(address payee)` | `PayeeInfo` | Get payee struct (payee, shares, exists) |
 | `payeeList(uint256 index)` | `address` | Get payee address by array index |
 | `totalShares()` | `uint256` | Get total shares across all payees |
@@ -73,15 +74,19 @@ uint256 pending = splitter.pendingToken(usdcToken, ignasAddress);
 | Function | Description | Security |
 |----------|-------------|----------|
 | `claim(IERC20 token, address payee)` | Claim tokens for one specific payee | `nonReentrant` |
-| `claimAll(IERC20 token)` | Claim tokens for ALL payees at once | `nonReentrant` |
+| `claimAll()` | Claim configured tokens for ALL payees at once | `nonReentrant` |
+| `claimAllForToken(IERC20 token)` | Claim a specific token for ALL payees (more gas efficient for single token) | `nonReentrant` |
 
 **Usage:**
 ```solidity
 // Claim for one payee
 splitter.claim(usdcToken, ignasAddress);
 
-// Claim for all payees at once
-splitter.claimAll(usdcToken);
+// Claim for all payees at once across every configured token
+splitter.claimAll();
+
+// Claim a specific token for all payees (more efficient when only one token needs claiming)
+splitter.claimAllForToken(usdcToken);
 ```
 
 **How it works:**
@@ -100,6 +105,8 @@ splitter.claimAll(usdcToken);
 | `updatePayeeShares(address payee, uint256 newShares)` | Update shares for an existing payee | `onlyOwner` |
 | `addOwner(address newOwner)` | Add a new owner | `onlyOwner` |
 | `removeOwner(address ownerToRemove)` | Remove an owner (cannot remove last owner) | `onlyOwner` |
+| `addClaimableToken(IERC20 token)` | Add ERC20 token to `claimAll()` list | `onlyOwner` |
+| `removeClaimableToken(IERC20 token)` | Remove ERC20 token from `claimAll()` list | `onlyOwner` |
 
 **Usage:**
 ```solidity
@@ -117,15 +124,20 @@ splitter.addOwner(newOwnerAddress);
 
 // Remove an owner
 splitter.removeOwner(ownerToRemove);
+
+// Manage claimable token list
+splitter.addClaimableToken(usdcToken);
+splitter.removeClaimableToken(usdcToken);
 ```
 
 ## Events
 
-- `ERC20Claimed(IERC20 indexed token, address indexed to, uint256 amount)` - Emitted when tokens are claimed
-- `PayeeAdded(address indexed payee, uint256 shares)` - Emitted when a new payee is added
-- `PayeeRemoved(address indexed payee)` - Emitted when a payee is removed
-- `PayeeUpdated(address indexed payee, uint256 oldShares, uint256 newShares)` - Emitted when payee shares are updated
-- `OwnershipTransferred(address indexed previousOwner, address indexed newOwner)` - Emitted when ownership is transferred
+- `ERC20Claimed(IERC20 indexed token, address indexed to, uint256 amount)` - Tokens distributed
+- `PayeeAdded(address indexed payee, uint256 shares)` - New payee added
+- `PayeeRemoved(address indexed payee)` - Payee removed
+- `PayeeUpdated(address indexed payee, uint256 oldShares, uint256 newShares)` - Shares updated
+- `OwnerAdded(address indexed owner)` and `OwnerRemoved(address indexed owner)` - Owner list changes
+- `ClaimableTokenAdded(IERC20 indexed token)` and `ClaimableTokenRemoved(IERC20 indexed token)` - Token list updates
 
 ## Usage Examples
 
@@ -140,8 +152,8 @@ uint256 pending = splitter.pendingToken(tokenAddress, payeeAddress);
 
 // 3. Claim tokens
 splitter.claim(tokenAddress, payeeAddress);
-// or claim for all payees
-splitter.claimAll(tokenAddress);
+// or claim for all payees across every configured token
+splitter.claimAll();
 ```
 
 ### Owner Management
@@ -222,18 +234,41 @@ The V2 contract includes several utility scripts for common operations:
 View pending token amounts for all payees without claiming:
 
 ```bash
-CONTRACT_ADDRESS=0x... TOKEN_ADDRESS=0x... npm run check:v2:base
+CONTRACT_ADDRESS=0x... npm run check:v2:base
+# Optional: TOKEN_ADDRESS=0x... (to force a single token)
 ```
 
 **Environment Variables:**
 - `CONTRACT_ADDRESS` - Proxy address of the deployed contract
-- `TOKEN_ADDRESS` - ERC20 token address to check
+- `TOKEN_ADDRESS` (optional) - ERC20 token address to check manually
 
 **What it shows:**
 - All payees and their shares
 - Pending amount for each payee
 - Total pending across all payees
-- Contract balance
+- Contract balance + per-token breakdown
+### Manage Claimable Tokens (Owner Only)
+
+Add, remove, or list ERC20 token addresses that `claimAll()` should sweep:
+
+```bash
+# List tokens
+CONTRACT_ADDRESS=0x... ACTION=list npm run tokens:v2:base
+
+# Add token
+CONTRACT_ADDRESS=0x... ACTION=add TOKEN_ADDRESS=0x... npm run tokens:v2:base
+
+# Remove token
+CONTRACT_ADDRESS=0x... ACTION=remove TOKEN_ADDRESS=0x... npm run tokens:v2:base
+```
+
+**Environment Variables:**
+- `CONTRACT_ADDRESS` - Proxy address of the deployed contract
+- `ACTION` - "list", "add", or "remove"
+- `TOKEN_ADDRESS` - Required for add/remove actions
+
+---
+
 
 ---
 
@@ -242,7 +277,27 @@ CONTRACT_ADDRESS=0x... TOKEN_ADDRESS=0x... npm run check:v2:base
 Claim tokens for all payees at once:
 
 ```bash
-CONTRACT_ADDRESS=0x... TOKEN_ADDRESS=0x... npm run claim:v2:base
+CONTRACT_ADDRESS=0x... npm run claim:v2:base
+```
+
+**Environment Variables:**
+- `CONTRACT_ADDRESS` - Proxy address of the deployed contract
+
+**What it does:**
+- Shows pending amounts before claiming
+- Claims tokens for all payees
+- Shows claimed amounts after transaction
+
+**Note:** Anyone can run this script (not just owner or payees)
+
+---
+
+### Claim All For Single Token
+
+Claim a specific token for all payees (more gas efficient when only one token needs claiming):
+
+```bash
+CONTRACT_ADDRESS=0x... TOKEN_ADDRESS=0x... npm run claim:token:v2:base
 ```
 
 **Environment Variables:**
@@ -250,9 +305,15 @@ CONTRACT_ADDRESS=0x... TOKEN_ADDRESS=0x... npm run claim:v2:base
 - `TOKEN_ADDRESS` - ERC20 token address to claim
 
 **What it does:**
-- Shows pending amounts before claiming
-- Claims tokens for all payees
+- Verifies token is in claimable tokens list
+- Shows pending amounts for the token
+- Claims the token for all payees
 - Shows claimed amounts after transaction
+
+**Gas Efficiency:**
+- `claimAllForToken()`: ~180-200k gas (1 token, 3 payees)
+- `claimAll()`: ~550k gas (6 tokens, 3 payees)
+- **Savings when claiming 1 token: ~350k gas (~$0.18-0.35)**
 
 **Note:** Anyone can run this script (not just owner or payees)
 
@@ -314,9 +375,11 @@ CONTRACT_ADDRESS=0x... NEW_OWNER=0x... npm run transfer-owner:v2:base
 
 | Script | Command | Access | Required Env Vars |
 |--------|---------|--------|-------------------|
-| Check Pending | `npm run check:v2:base` | Anyone | `CONTRACT_ADDRESS`, `TOKEN_ADDRESS` |
-| Claim All | `npm run claim:v2:base` | Anyone | `CONTRACT_ADDRESS`, `TOKEN_ADDRESS` |
+| Check Pending | `npm run check:v2:base` | Anyone | `CONTRACT_ADDRESS` (optional `TOKEN_ADDRESS`) |
+| Claim All | `npm run claim:v2:base` | Anyone | `CONTRACT_ADDRESS` |
+| Claim All For Token | `npm run claim:token:v2:base` | Anyone | `CONTRACT_ADDRESS`, `TOKEN_ADDRESS` |
 | Manage Payees | `npm run manage:v2:base` | Owner | `CONTRACT_ADDRESS`, `ACTION`, `PAYEE`, `SHARES` (if add/update) |
+| Manage Tokens | `npm run tokens:v2:base` | Owner for add/remove | `CONTRACT_ADDRESS`, `ACTION`, `TOKEN_ADDRESS` (add/remove) |
 | Transfer Owner | `npm run transfer-owner:v2:base` | Owner | `CONTRACT_ADDRESS`, `NEW_OWNER` |
 
 **All scripts can also be run directly:**
@@ -342,18 +405,19 @@ npm run test:coverage
 
 ### Test Coverage
 
-**33 tests across 4 test files:**
-- ✅ All V1 functionality (deflationary tokens, vault tokens, reentrancy)
-- ✅ V2-specific features (payee management, ownership, upgrades)
-- ✅ Edge cases and precision handling
-- ✅ Security tests (reentrancy protection, access control)
+**45 tests across 5 test files:**
+- ✅ Token distribution flows (individual claims, claimAll, mixed deposits)
+- ✅ Payee management (add/remove/update, duplicate prevention)
+- ✅ Owner management (add/remove owners, last-owner safeguards)
+- ✅ Token compatibility (standard, deflationary, vault tokens, multi-token claimAll)
+- ✅ Security & accounting (reentrancy guard, payee removal cleanup)
 
 **Coverage Areas:**
 - Core functionality (token splitting, claims, pending calculations)
 - Payee management (add/remove/update, duplicate prevention)
 - Security (reentrancy, access control, input validation)
 - Token compatibility (standard, deflationary, vault tokens, rebasing)
-- Edge cases (zero amounts, precision, multiple claims)
+- Claimable token list management and operational scripts
 
 ## Ownership & Multi-Owner System
 

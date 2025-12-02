@@ -33,9 +33,16 @@ describe("ERC20FeeSplitterV2 - Vault Token Compatibility", function () {
     const TokenFactory = await ethers.getContractFactory(
       "contracts/ERC20FeeSplitter-V2/mocks/ERC20Mock.sol:ERC20Mock",
     );
-    usdc = await TokenFactory.deploy("USD Coin", "USDC", 6);
-    cbbtc = await TokenFactory.deploy("Coinbase Wrapped BTC", "cbBTC", 8);
-    weth = await TokenFactory.deploy("Wrapped Ether", "WETH", 18);
+    usdc = (await TokenFactory.deploy("USD Coin", "USDC", 6)) as ERC20Mock;
+    cbbtc = (await TokenFactory.deploy("Coinbase Wrapped BTC", "cbBTC", 8)) as ERC20Mock;
+    weth = (await TokenFactory.deploy("Wrapped Ether", "WETH", 18)) as ERC20Mock;
+    await usdc.waitForDeployment();
+    await cbbtc.waitForDeployment();
+    await weth.waitForDeployment();
+
+    await splitter.addClaimableToken(await usdc.getAddress());
+    await splitter.addClaimableToken(await cbbtc.getAddress());
+    await splitter.addClaimableToken(await weth.getAddress());
   });
 
   describe("USDC (6 decimals)", function () {
@@ -61,7 +68,7 @@ describe("ERC20FeeSplitterV2 - Vault Token Compatibility", function () {
       await usdc.mint(owner.address, amount);
       await usdc.transfer(await splitter.getAddress(), amount);
 
-      await splitter.claimAll(usdc);
+      await splitter.claimAll();
       // Should handle rounding correctly
       const totalClaimed =
         (await usdc.balanceOf(IGNAS_ADDRESS)) +
@@ -120,9 +127,7 @@ describe("ERC20FeeSplitterV2 - Vault Token Compatibility", function () {
       await weth.transfer(await splitter.getAddress(), wethAmount);
 
       // Claim all tokens
-      await splitter.claimAll(usdc);
-      await splitter.claimAll(cbbtc);
-      await splitter.claimAll(weth);
+      await splitter.claimAll();
 
       // Verify all tokens were split correctly
       expect(await usdc.balanceOf(IGNAS_ADDRESS)).to.equal(ethers.parseUnits("300", 6));

@@ -4,10 +4,10 @@ import { ethers, run } from "hardhat";
  * Deploy ERC20FeeSplitterV2 - Fee splitter with dynamic payee management and multi-owner support
  *
  * Initial Configuration:
- * - Ignas: 3 shares (1.5%)
- * - Nick: 3 shares (1.5%)
- * - Muscadine Labs: 4 shares (2.0%)
- * - Total: 10 shares (5%)
+ * - Ignas: 1 share
+ * - Nick: 1 share
+ * - Muscadine Labs: 3 shares
+ * - Total: 5 shares
  * - Owners: Set via OWNER_ADDRESSES env var (comma-separated) or defaults to Nick's wallet
  */
 async function main() {
@@ -22,11 +22,20 @@ async function main() {
 
   // PRODUCTION CONFIGURATION
   const IGNAS = "0x0D5A708B651FeE1DAA0470431c4262ab3e1D0261";
-  const NICK = "0xf35B121bA32cBeaA27716abEfFb6B65a55f9B333";
+  const NICK = "0x628037c2D25F5e5f6F90415CFf6d7e8860f41C08";
   const MUSCADINE_LABS = "0x057fd8B961Eb664baA647a5C7A6e9728fabA266A"; // Muscadine Labs Treasury
 
   const initialPayees = [IGNAS, NICK, MUSCADINE_LABS];
-  const initialShares = [3, 3, 4]; // Total: 10 shares (5% of fees)
+  const initialShares = [1, 1, 3]; // Total: 5 shares
+
+  const initialClaimableTokens = [
+    "0xf7e26Fa48A568b8b0038e104DfD8ABdf0f99074F",
+    "0xAeCc8113a7bD0CFAF7000EA7A31afFD4691ff3E9",
+    "0x21e0d366272798da3A977FEBA699FCB91959d120",
+    "0x89712980Cb434Ef5AE4aB29349419eB976b0B496",
+    "0xd6DCaD2f7DA91fbB27bdA471540D9770C97a5A43",
+    "0x99dCd0D75822ba398f13b2A8852B07c7E137Ec70",
+  ];
 
   // Owners can be set via environment variable (comma-separated) or defaults to Nick and Ignas
   const OWNERS_ENV = process.env.OWNER_ADDRESSES || process.env.OWNER_ADDRESS;
@@ -35,18 +44,16 @@ async function main() {
     : [NICK, IGNAS]; // Default to Nick and Ignas
 
   console.log("\n=== Initial Configuration ===");
-  console.log("Ignas:        ", IGNAS, "(3 shares, 1.5%)");
-  console.log("Nick:         ", NICK, "(3 shares, 1.5%)");
-  console.log("Muscadine Labs:", MUSCADINE_LABS, "(4 shares, 2.0%)");
-  console.log(
-    "Total shares: ",
-    initialShares.reduce((a, b) => a + b, 0),
-    "(5%)",
-  );
+  console.log("Ignas:        ", IGNAS, "(1 share)");
+  console.log("Nick:         ", NICK, "(1 share)");
+  console.log("Muscadine Labs:", MUSCADINE_LABS, "(3 shares)");
+  console.log("Total shares: ", initialShares.reduce((a, b) => a + b, 0));
   console.log("Owners:       ", initialOwners.length, "owner(s)");
   for (let i = 0; i < initialOwners.length; i++) {
     console.log(`  Owner ${i + 1}:`, initialOwners[i]);
   }
+  console.log("Claimable tokens:");
+  initialClaimableTokens.forEach((token, idx) => console.log(`  Token ${idx + 1}: ${token}`));
 
   // Deploy contract directly (no proxy)
   const ERC20FeeSplitterV2 = await ethers.getContractFactory("ERC20FeeSplitterV2");
@@ -86,6 +93,21 @@ async function main() {
     }
   } catch (error: any) {
     console.log("⚠️  Could not retrieve payee information:", error.message);
+  }
+
+  console.log("\n=== Initial Claimable Tokens ===");
+  for (const token of initialClaimableTokens) {
+    try {
+      const tx = await splitter.addClaimableToken(token);
+      await tx.wait();
+      console.log(`✅ Added claimable token: ${token}`);
+    } catch (error: any) {
+      if (error.message?.includes("ClaimableTokenAlreadyExists")) {
+        console.log(`ℹ️  Token already configured: ${token}`);
+      } else {
+        console.log(`⚠️  Failed to add token ${token}:`, error.message);
+      }
+    }
   }
 
   console.log("\n=== Important ===");
@@ -152,7 +174,7 @@ async function main() {
 
   console.log("\n=== Additional Steps ===");
   console.log("1. Update Muscadine Labs address if needed:");
-  console.log(`   splitter.updatePayeeShares(${MUSCADINE_LABS}, 4)`);
+  console.log(`   splitter.updatePayeeShares(${MUSCADINE_LABS}, 3)`);
   console.log("");
   console.log("2. Set as fee recipient in your Morpho vaults");
   console.log("3. Start receiving and splitting fees!");

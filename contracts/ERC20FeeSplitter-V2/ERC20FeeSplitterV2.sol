@@ -25,6 +25,11 @@ contract ERC20FeeSplitterV2 is ReentrancyGuard {
     error OwnerNotFound();
     error OwnerAlreadyExists();
     error CannotRemoveLastOwner();
+    error NoOwners();
+    error NoClaimableTokens();
+    error ClaimableTokenAlreadyExists();
+    error ClaimableTokenNotFound();
+    error InvalidToken();
 
     // --- storage ---
     struct PayeeInfo {
@@ -44,6 +49,10 @@ contract ERC20FeeSplitterV2 is ReentrancyGuard {
     // --- mutable accounting ---
     mapping(IERC20 => mapping(address => uint256)) private _releasedERC20;
     mapping(IERC20 => uint256) private _totalReleasedERC20;
+    IERC20[] private _trackedTokens;
+    mapping(IERC20 => bool) private _isTrackedToken;
+    IERC20[] private _claimableTokens;
+    mapping(IERC20 => bool) private _isClaimableToken;
 
     // --- events ---
     event ERC20Claimed(IERC20 indexed token, address indexed to, uint256 amount);
@@ -52,6 +61,8 @@ contract ERC20FeeSplitterV2 is ReentrancyGuard {
     event PayeeUpdated(address indexed payee, uint256 oldShares, uint256 newShares);
     event OwnerAdded(address indexed owner);
     event OwnerRemoved(address indexed owner);
+    event ClaimableTokenAdded(IERC20 indexed token);
+    event ClaimableTokenRemoved(IERC20 indexed token);
 
     /// @notice Constructor - Initialize the contract with initial payees and owners
     /// @param initialPayees Array of payee addresses
@@ -62,7 +73,7 @@ contract ERC20FeeSplitterV2 is ReentrancyGuard {
         uint256[] memory initialShares,
         address[] memory initialOwners
     ) {
-        if (initialOwners.length == 0) revert InvalidPayee(); // Must have at least one owner
+        if (initialOwners.length == 0) revert NoOwners(); // Must have at least one owner
         if (initialPayees.length == 0) revert NoPayees();
         if (initialPayees.length != initialShares.length) revert InvalidShares();
 
@@ -142,6 +153,8 @@ contract ERC20FeeSplitterV2 is ReentrancyGuard {
         uint256 amount = pendingToken(token, payee);
         if (amount == 0) revert NothingDue();
 
+        _trackToken(token);
+
         // actual-sent accounting (handles deflationary tokens)
         uint256 balanceBefore = token.balanceOf(address(this));
         token.safeTransfer(payee, amount);
@@ -155,25 +168,70 @@ contract ERC20FeeSplitterV2 is ReentrancyGuard {
         emit ERC20Claimed(token, payee, sent);
     }
 
-    function claimAll(IERC20 token) external nonReentrant {
+    function claimAll() external nonReentrant {
         if (payeeList.length == 0) revert NoPayees();
+        if (_claimableTokens.length == 0) revert NoClaimableTokens();
+
+        for (uint256 t = 0; t < _claimableTokens.length; t++) {
+            IERC20 token = _claimableTokens[t];
+            _trackToken(token);
+
+            for (uint256 i = 0; i < payeeList.length; i++) {
+                address payee = payeeList[i];
+                uint256 amount = pendingToken(token, payee);
+
+                if (amount == 0) continue;
+
+                uint256 balanceBefore = token.balanceOf(address(this));
+                if (balanceBefore == 0) break;
+
+                uint256 payout = amount <= balanceBefore ? amount : balanceBefore;
+                if (payout == 0) continue;
+
+                token.safeTransfer(payee, payout);
+
+                uint256 balanceAfter = token.balanceOf(address(this));
+                if (balanceAfter >= balanceBefore) revert TokenTransferFailed();
+
+                uint256 sent = balanceBefore - balanceAfter;
+                if (sent == 0) continue;
+
+                _releasedERC20[token][payee] += sent;
+                _totalReleasedERC20[token] += sent;
+                emit ERC20Claimed(token, payee, sent);
+            }
+        }
+    }
+
+    function claimAllForToken(IERC20 token) external nonReentrant {
+        if (payeeList.length == 0) revert NoPayees();
+        if (!_isClaimableToken[token]) revert ClaimableTokenNotFound();
+
+        _trackToken(token);
 
         for (uint256 i = 0; i < payeeList.length; i++) {
             address payee = payeeList[i];
             uint256 amount = pendingToken(token, payee);
 
-            if (amount > 0) {
-                uint256 balanceBefore = token.balanceOf(address(this));
-                token.safeTransfer(payee, amount);
-                uint256 balanceAfter = token.balanceOf(address(this));
+            if (amount == 0) continue;
 
-                if (balanceAfter < balanceBefore) {
-                    uint256 sent = balanceBefore - balanceAfter;
-                    _releasedERC20[token][payee] += sent;
-                    _totalReleasedERC20[token] += sent;
-                    emit ERC20Claimed(token, payee, sent);
-                }
-            }
+            uint256 balanceBefore = token.balanceOf(address(this));
+            if (balanceBefore == 0) break;
+
+            uint256 payout = amount <= balanceBefore ? amount : balanceBefore;
+            if (payout == 0) continue;
+
+            token.safeTransfer(payee, payout);
+
+            uint256 balanceAfter = token.balanceOf(address(this));
+            if (balanceAfter >= balanceBefore) revert TokenTransferFailed();
+
+            uint256 sent = balanceBefore - balanceAfter;
+            if (sent == 0) continue;
+
+            _releasedERC20[token][payee] += sent;
+            _totalReleasedERC20[token] += sent;
+            emit ERC20Claimed(token, payee, sent);
         }
     }
 
@@ -193,6 +251,17 @@ contract ERC20FeeSplitterV2 is ReentrancyGuard {
     function removePayee(address payee) external onlyOwner {
         PayeeInfo memory payeeInfo = payees[payee];
         if (!payeeInfo.exists) revert PayeeNotFound();
+
+        // Clean accounting for the removed payee across all tracked tokens
+        uint256 tokenCount = _trackedTokens.length;
+        for (uint256 i = 0; i < tokenCount; i++) {
+            IERC20 token = _trackedTokens[i];
+            uint256 released = _releasedERC20[token][payee];
+            if (released > 0) {
+                _totalReleasedERC20[token] -= released;
+                delete _releasedERC20[token][payee];
+            }
+        }
 
         // Remove from mapping
         delete payees[payee];
@@ -252,5 +321,45 @@ contract ERC20FeeSplitterV2 is ReentrancyGuard {
         }
 
         emit OwnerRemoved(ownerToRemove);
+    }
+
+    // --- claimable token management ---
+    function addClaimableToken(IERC20 token) external onlyOwner {
+        if (address(token) == address(0)) revert InvalidToken();
+        if (_isClaimableToken[token]) revert ClaimableTokenAlreadyExists();
+
+        _isClaimableToken[token] = true;
+        _claimableTokens.push(token);
+
+        emit ClaimableTokenAdded(token);
+    }
+
+    function removeClaimableToken(IERC20 token) external onlyOwner {
+        if (!_isClaimableToken[token]) revert ClaimableTokenNotFound();
+
+        delete _isClaimableToken[token];
+
+        uint256 length = _claimableTokens.length;
+        for (uint256 i = 0; i < length; i++) {
+            if (_claimableTokens[i] == token) {
+                _claimableTokens[i] = _claimableTokens[length - 1];
+                _claimableTokens.pop();
+                break;
+            }
+        }
+
+        emit ClaimableTokenRemoved(token);
+    }
+
+    function getClaimableTokens() external view returns (IERC20[] memory) {
+        return _claimableTokens;
+    }
+
+    // --- internal helpers ---
+    function _trackToken(IERC20 token) private {
+        if (!_isTrackedToken[token]) {
+            _isTrackedToken[token] = true;
+            _trackedTokens.push(token);
+        }
     }
 }

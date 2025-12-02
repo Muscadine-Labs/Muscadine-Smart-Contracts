@@ -209,7 +209,7 @@ npx hardhat test contracts/ERC20FeeSplitter/test/
 
 **Test Coverage:**
 - **V1:** 31+ tests covering immutable contract functionality
-- **V2:** 33 tests covering upgradeable contract + all V1 functionality
+- **V2:** 45 tests covering dynamic payees/owners, multi-token claimAll, and all V1 scenarios
 - Deflationary tokens (fee-on-transfer)
 - Vault tokens (USDC, cbBTC, WETH with different decimals)
 - Rebasing tokens
@@ -230,10 +230,10 @@ CONTRACT_ADDRESS=0x... TOKEN_ADDRESS=0x... npm run claim:v1:base
 
 V2 includes comprehensive scripts for contract management. See [contracts/ERC20FeeSplitter-V2/README.md](./contracts/ERC20FeeSplitter-V2/README.md#scripts) for full documentation.
 
-**Quick Reference:**
-- **Check Pending:** `CONTRACT_ADDRESS=0x... TOKEN_ADDRESS=0x... npm run check:v2:base`
-- **Claim All:** `CONTRACT_ADDRESS=0x... TOKEN_ADDRESS=0x... npm run claim:v2:base`
+- **Check Pending:** `CONTRACT_ADDRESS=0x... npm run check:v2:base` (optional `TOKEN_ADDRESS=0x...`)
+- **Claim All:** `CONTRACT_ADDRESS=0x... npm run claim:v2:base`
 - **Manage Payees:** `CONTRACT_ADDRESS=0x... ACTION=add PAYEE=0x... SHARES=2 npm run manage:v2:base`
+- **Manage Claimable Tokens:** `CONTRACT_ADDRESS=0x... ACTION=add TOKEN_ADDRESS=0x... npm run tokens:v2:base`
 - **Transfer Owner:** `CONTRACT_ADDRESS=0x... NEW_OWNER=0x... npm run transfer-owner:v2:base`
 
 **Environment Variables:**
@@ -242,7 +242,7 @@ V2 includes comprehensive scripts for contract management. See [contracts/ERC20F
 - `BASESCAN_API_KEY` - Basescan API key for contract verification
 - `OWNER_ADDRESS` - Contract owner address (optional, defaults to Nick's wallet)
 - `CONTRACT_ADDRESS` - Proxy address for scripts (when interacting with deployed contract)
-- `TOKEN_ADDRESS` - ERC20 token address (for claim/check scripts)
+- `TOKEN_ADDRESS` - Optional ERC20 token override for check/claim scripts
 
 ## Development
 
