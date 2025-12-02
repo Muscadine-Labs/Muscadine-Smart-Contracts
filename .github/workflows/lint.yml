@@ -14,10 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '20.x'
         cache: 'npm'
@@ -30,6 +30,6 @@ jobs:
       continue-on-error: true
     
     - name: Run Prettier check
-      run: npx prettier --check 'contracts/**/*.sol' 'test/**/*.ts' 'scripts/**/*.ts'
+      run: npx prettier --check 'contracts/**/*.sol' 'contracts/**/test/**/*.ts' 'contracts/**/scripts/**/*.ts'
       continue-on-error: true
 
