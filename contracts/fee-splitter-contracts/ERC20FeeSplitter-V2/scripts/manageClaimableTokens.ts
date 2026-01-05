@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { ERC20FeeSplitterV2 } from "../../../typechain-types";
+import { ERC20FeeSplitterV2 } from "../../../../typechain-types";
 
 type Action = "list" | "add" | "remove";
 
@@ -33,9 +33,7 @@ async function main() {
   const isOwner = await splitter.isOwner(caller.address);
   if (ACTION !== "list" && !isOwner) {
     const owners = await splitter.getAllOwners();
-    throw new Error(
-      `Only owners can add or remove claimable tokens. Owners: ${owners.join(", ")}`,
-    );
+    throw new Error(`Only owners can add or remove claimable tokens. Owners: ${owners.join(", ")}`);
   }
 
   console.log("Managing claimable tokens with account:", caller.address);
@@ -100,4 +98,3 @@ if (require.main === module) {
       process.exit(1);
     });
 }
-

@@ -4,11 +4,11 @@ import { ethers, run } from "hardhat";
  * Deploy ERC20FeeSplitterV2 - Fee splitter with dynamic payee management and multi-owner support
  *
  * Initial Configuration:
- * - Ignas: 1 share
- * - Nick: 1 share
- * - Muscadine Labs: 3 shares
+ * - Payee 1: 1 share
+ * - Payee 2: 1 share
+ * - Payee 3: 3 shares
  * - Total: 5 shares
- * - Owners: Set via OWNER_ADDRESSES env var (comma-separated) or defaults to Nick's wallet
+ * - Owners: Set via OWNER_ADDRESSES env var (comma-separated) or defaults to Payee 1 and Payee 2
  */
 async function main() {
   const [deployer] = await ethers.getSigners();
@@ -21,11 +21,11 @@ async function main() {
   );
 
   // PRODUCTION CONFIGURATION
-  const IGNAS = "0x0D5A708B651FeE1DAA0470431c4262ab3e1D0261";
-  const NICK = "0x628037c2D25F5e5f6F90415CFf6d7e8860f41C08";
-  const MUSCADINE_LABS = "0x057fd8B961Eb664baA647a5C7A6e9728fabA266A"; // Muscadine Labs Treasury
+  const PAYEE1 = "0x1111111111111111111111111111111111111111" as const;
+  const PAYEE2 = "0x2222222222222222222222222222222222222222" as const;
+  const PAYEE3 = "0x3333333333333333333333333333333333333333" as const;
 
-  const initialPayees = [IGNAS, NICK, MUSCADINE_LABS];
+  const initialPayees = [PAYEE1, PAYEE2, PAYEE3];
   const initialShares = [1, 1, 3]; // Total: 5 shares
 
   const initialClaimableTokens = [
@@ -37,17 +37,20 @@ async function main() {
     "0x99dCd0D75822ba398f13b2A8852B07c7E137Ec70",
   ];
 
-  // Owners can be set via environment variable (comma-separated) or defaults to Nick and Ignas
+  // Owners can be set via environment variable (comma-separated) or defaults to Payee1 and Payee2
   const OWNERS_ENV = process.env.OWNER_ADDRESSES || process.env.OWNER_ADDRESS;
   const initialOwners = OWNERS_ENV
     ? OWNERS_ENV.split(",").map((addr) => addr.trim())
-    : [NICK, IGNAS]; // Default to Nick and Ignas
+    : [PAYEE1, PAYEE2]; // Default to Payee1 and Payee2
 
   console.log("\n=== Initial Configuration ===");
-  console.log("Ignas:        ", IGNAS, "(1 share)");
-  console.log("Nick:         ", NICK, "(1 share)");
-  console.log("Muscadine Labs:", MUSCADINE_LABS, "(3 shares)");
-  console.log("Total shares: ", initialShares.reduce((a, b) => a + b, 0));
+  console.log("Payee 1:", PAYEE1, "(1 share)");
+  console.log("Payee 2:", PAYEE2, "(1 share)");
+  console.log("Payee 3:", PAYEE3, "(3 shares)");
+  console.log(
+    "Total shares: ",
+    initialShares.reduce((a, b) => a + b, 0),
+  );
   console.log("Owners:       ", initialOwners.length, "owner(s)");
   for (let i = 0; i < initialOwners.length; i++) {
     console.log(`  Owner ${i + 1}:`, initialOwners[i]);
@@ -157,7 +160,9 @@ async function main() {
     } catch (error: any) {
       console.log("\n⚠️  Automatic verification encountered an error");
       console.log("You can verify manually:");
-      console.log(`   npx hardhat verify --network base ${contractAddress} "${initialPayees}" "${initialShares}" "${initialOwners}"`);
+      console.log(
+        `   npx hardhat verify --network base ${contractAddress} "${initialPayees}" "${initialShares}" "${initialOwners}"`,
+      );
     }
   } else {
     console.log("\n=== Next Steps ===");
@@ -168,13 +173,15 @@ async function main() {
       console.log("⚠️  Not on Base network - skipping automatic verification");
     }
     console.log("Verify contract on Basescan:");
-    console.log(`   npx hardhat verify --network base ${contractAddress} "${initialPayees}" "${initialShares}" "${initialOwners}"`);
+    console.log(
+      `   npx hardhat verify --network base ${contractAddress} "${initialPayees}" "${initialShares}" "${initialOwners}"`,
+    );
     console.log("");
   }
 
   console.log("\n=== Additional Steps ===");
-  console.log("1. Update Muscadine Labs address if needed:");
-  console.log(`   splitter.updatePayeeShares(${MUSCADINE_LABS}, 3)`);
+  console.log("1. Update Payee 3 address if needed:");
+  console.log(`   splitter.updatePayeeShares(${PAYEE3}, 3)`);
   console.log("");
   console.log("2. Set as fee recipient in your Morpho vaults");
   console.log("3. Start receiving and splitting fees!");

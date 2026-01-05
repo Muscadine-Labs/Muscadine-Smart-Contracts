@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { ERC20FeeSplitterV2 } from "../../../typechain-types";
+import { ERC20FeeSplitterV2 } from "../../../../typechain-types";
 
 /**
  * Manage payees in ERC20FeeSplitterV2 (Owner Only)
@@ -47,7 +47,9 @@ async function main() {
   const isOwner = await splitter.isOwner(signer.address);
   if (!isOwner) {
     const allOwners = await splitter.getAllOwners();
-    throw new Error(`Only owners can manage payees. Owners: ${allOwners.join(", ")}, Caller: ${signer.address}`);
+    throw new Error(
+      `Only owners can manage payees. Owners: ${allOwners.join(", ")}, Caller: ${signer.address}`,
+    );
   }
 
   // Get current state

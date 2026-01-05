@@ -16,21 +16,21 @@ async function main() {
   );
 
   // PRODUCTION CONFIGURATION (PERMANENT - CANNOT BE CHANGED!)
-  const NICK = "0xf35B121bA32cBeaA27716abEfFb6B65a55f9B333";
-  const IGNAS = "0x0D5A708B651FeE1DAA0470431c4262ab3e1D0261";
-  const SHARES = [1, 1]; // 50/50 split
+  const PAYEE1 = "0x1111111111111111111111111111111111111111" as const;
+  const PAYEE2 = "0x2222222222222222222222222222222222222222" as const;
+  const SHARES = [1, 1] as const; // 50/50 split
 
   console.log("\n=== PERMANENT Configuration ===");
   console.log("WARNING: This configuration is IMMUTABLE and PERMANENT!");
-  console.log("Nick:  ", NICK, "(50%)");
-  console.log("Ignas: ", IGNAS, "(50%)");
+  console.log("Payee 1:", PAYEE1, "(50%)");
+  console.log("Payee 2:", PAYEE2, "(50%)");
   console.log("Shares:", SHARES);
 
   // Deploy
   const FeeSplitter = await ethers.getContractFactory("ERC20FeeSplitter");
 
   console.log("\nDeploying immutable contract...");
-  const splitter = await FeeSplitter.deploy(NICK, IGNAS, SHARES[0], SHARES[1]);
+  const splitter = await FeeSplitter.deploy(PAYEE1, PAYEE2, SHARES[0], SHARES[1]);
   await splitter.waitForDeployment();
 
   const contractAddress = await splitter.getAddress();
@@ -43,8 +43,8 @@ async function main() {
   console.log("Payee 1:", await splitter.PAYEE1());
   console.log("Payee 2:", await splitter.PAYEE2());
   console.log("Total shares:", await splitter.TOTAL_SHARES());
-  console.log("Nick's shares:", await splitter.SHARES1());
-  console.log("Ignas's shares:", await splitter.SHARES2());
+  console.log("Payee 1 shares:", await splitter.SHARES1());
+  console.log("Payee 2 shares:", await splitter.SHARES2());
 
   console.log("\n=== IMPORTANT ===");
   console.log("This contract is FULLY IMMUTABLE:");
@@ -60,8 +60,8 @@ async function main() {
   console.log("\n=== Next Steps ===");
   console.log("1. Verify contract on Basescan:");
   console.log(`   npx hardhat verify --network base ${contractAddress} \\`);
-  console.log(`     "${NICK}" \\`);
-  console.log(`     "${IGNAS}" \\`);
+  console.log(`     "${PAYEE1}" \\`);
+  console.log(`     "${PAYEE2}" \\`);
   console.log(`     "${SHARES[0]}" \\`);
   console.log(`     "${SHARES[1]}"`);
   console.log("");
@@ -75,8 +75,8 @@ async function main() {
     deployer: deployer.address,
     timestamp: new Date().toISOString(),
     contract: contractAddress,
-    payee1: NICK,
-    payee2: IGNAS,
+    payee1: PAYEE1,
+    payee2: PAYEE2,
     shares: SHARES,
     immutable: true,
     noOwner: true,

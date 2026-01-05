@@ -1,4 +1,5 @@
 import { ethers } from "hardhat";
+import { ERC20FeeSplitter } from "../../../../typechain-types";
 
 /**
  * Claim all tokens for all payees in ERC20FeeSplitter (V1)
@@ -24,16 +25,36 @@ async function main() {
   console.log("Token address:", TOKEN_ADDRESS);
 
   // Get contract instance
-  const ERC20FeeSplitter = await ethers.getContractFactory("ERC20FeeSplitter");
-  const splitter = ERC20FeeSplitter.attach(CONTRACT_ADDRESS);
+  const ERC20FeeSplitterFactory = await ethers.getContractFactory("ERC20FeeSplitter");
+  const splitter = ERC20FeeSplitterFactory.attach(CONTRACT_ADDRESS) as ERC20FeeSplitter;
 
   // Get token instance
   const token = await ethers.getContractAt("IERC20", TOKEN_ADDRESS);
 
-  // Get token info
-  const tokenName = await token.name().catch(() => "Unknown");
-  const tokenSymbol = await token.symbol().catch(() => "UNKNOWN");
-  const tokenDecimals = await token.decimals().catch(() => 18);
+  // Get token info (name, symbol, decimals are optional metadata)
+  let tokenName = "Unknown";
+  let tokenSymbol = "UNKNOWN";
+  let tokenDecimals = 18;
+  try {
+    const nameResult = await (token as any).name();
+    if (nameResult) tokenName = nameResult;
+  } catch {
+    // optional metadata
+  }
+  try {
+    const symbolResult = await (token as any).symbol();
+    if (symbolResult) tokenSymbol = symbolResult;
+  } catch {
+    // optional metadata
+  }
+  try {
+    const decimalsResult = await (token as any).decimals();
+    if (decimalsResult !== null && decimalsResult !== undefined) {
+      tokenDecimals = Number(decimalsResult);
+    }
+  } catch {
+    // optional metadata
+  }
 
   console.log(`\nToken: ${tokenName} (${tokenSymbol})`);
 
@@ -42,8 +63,8 @@ async function main() {
   const payee2 = await splitter.PAYEE2();
 
   console.log("\nPayees:");
-  console.log("  Payee 1 (Nick):", payee1);
-  console.log("  Payee 2 (Ignas):", payee2);
+  console.log("  Payee 1:", payee1);
+  console.log("  Payee 2:", payee2);
 
   // Check pending amounts
   const pending1 = await splitter.pendingToken(token, payee1);

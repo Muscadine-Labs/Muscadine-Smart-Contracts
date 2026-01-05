@@ -6,6 +6,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 /// @title ERC20Mock
 /// @notice Mock ERC20 token for testing with standard transfer behavior
 /// @dev Allows anyone to mint for testing purposes
+/// @author Muscadine Labs
 contract ERC20Mock is ERC20 {
     uint8 private immutable _DECIMALS;
 

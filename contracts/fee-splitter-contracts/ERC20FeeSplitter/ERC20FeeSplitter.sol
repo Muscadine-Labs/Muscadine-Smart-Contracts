@@ -10,6 +10,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 ///         No owner, no upgrades, no configuration changes - set once at deployment, fixed forever.
 /// @dev Uses "actual-sent" accounting for ERC20 to support fee-on-transfer tokens.
 ///      Supports splitting any ERC20 token, including vault share tokens (e.g., Morpho vault shares).
+/// @author Muscadine Labs
 contract ERC20FeeSplitter is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -22,10 +23,15 @@ contract ERC20FeeSplitter is ReentrancyGuard {
     error TokenTransferFailed();
 
     // --- immutable storage ---
+    /// @notice Total shares across all payees
     uint256 public immutable TOTAL_SHARES;
+    /// @notice First payee address
     address public immutable PAYEE1;
+    /// @notice Second payee address
     address public immutable PAYEE2;
+    /// @notice Shares allocated to first payee
     uint256 public immutable SHARES1;
+    /// @notice Shares allocated to second payee
     uint256 public immutable SHARES2;
 
     // --- mutable accounting ---
@@ -33,6 +39,10 @@ contract ERC20FeeSplitter is ReentrancyGuard {
     mapping(IERC20 => uint256) private _totalReleasedERC20;
 
     // --- events ---
+    /// @notice Emitted when tokens are claimed
+    /// @param token The ERC20 token that was claimed
+    /// @param to The address that received the tokens
+    /// @param amount The amount of tokens claimed
     event ERC20Claimed(IERC20 indexed token, address indexed to, uint256 amount);
 
     constructor(address payee1_, address payee2_, uint256 shares1_, uint256 shares2_) {
@@ -48,6 +58,10 @@ contract ERC20FeeSplitter is ReentrancyGuard {
     }
 
     // --- views ---
+    /// @notice Calculate the pending token amount for a payee
+    /// @param token The ERC20 token to check
+    /// @param a The payee address
+    /// @return The amount of tokens the payee can claim
     function pendingToken(IERC20 token, address a) public view returns (uint256) {
         uint256 share = a == PAYEE1 ? SHARES1 : (a == PAYEE2 ? SHARES2 : 0);
         if (share == 0) return 0;
@@ -59,6 +73,9 @@ contract ERC20FeeSplitter is ReentrancyGuard {
     }
 
     // --- claim ---
+    /// @notice Claim tokens for a specific payee
+    /// @param token The ERC20 token to claim
+    /// @param payee The payee address to claim for
     function claim(IERC20 token, address payee) external nonReentrant {
         if (payee != PAYEE1 && payee != PAYEE2) revert NotPayee();
         uint256 amount = pendingToken(token, payee);
@@ -68,7 +85,8 @@ contract ERC20FeeSplitter is ReentrancyGuard {
         uint256 balanceBefore = token.balanceOf(address(this));
         token.safeTransfer(payee, amount);
         uint256 balanceAfter = token.balanceOf(address(this));
-        if (balanceAfter >= balanceBefore) revert TokenTransferFailed(); // avoids underflow, handles 0-sent and positive rebase
+        // avoids underflow, handles 0-sent and positive rebase
+        if (balanceAfter >= balanceBefore) revert TokenTransferFailed();
         uint256 sent = balanceBefore - balanceAfter;
 
         _releasedERC20[token][payee] += sent;
@@ -77,6 +95,8 @@ contract ERC20FeeSplitter is ReentrancyGuard {
         emit ERC20Claimed(token, payee, sent);
     }
 
+    /// @notice Claim tokens for both payees
+    /// @param token The ERC20 token to claim
     function claimAll(IERC20 token) external nonReentrant {
         // Claim for PAYEE1
         uint256 amount1 = pendingToken(token, PAYEE1);

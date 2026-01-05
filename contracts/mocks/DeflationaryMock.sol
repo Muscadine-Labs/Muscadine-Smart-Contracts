@@ -6,8 +6,10 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 /// @title DeflationaryMock
 /// @notice Mock deflationary ERC20 token that burns 1% on every transfer
 /// @dev Used to test proper handling of tokens with transfer fees/burns
+/// @author Muscadine Labs
 contract DeflationaryMock is ERC20 {
     uint8 private immutable _DECIMALS;
+    /// @notice Burn rate denominator (1% = 1/100)
     uint256 public constant BURN_RATE = 100; // 1% = 1/100
 
     constructor(string memory name, string memory symbol, uint8 decimals_) ERC20(name, symbol) {

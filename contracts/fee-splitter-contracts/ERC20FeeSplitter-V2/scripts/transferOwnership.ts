@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-import { ERC20FeeSplitterV2 } from "../../../typechain-types";
+import { ERC20FeeSplitterV2 } from "../../../../typechain-types";
 
 /**
  * Add or remove owner from ERC20FeeSplitterV2 (Owner Only)
